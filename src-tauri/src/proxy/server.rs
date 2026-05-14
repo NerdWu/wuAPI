@@ -114,8 +114,8 @@ impl ProxyServer {
             .route(
                 "/openai/deployments",
                 get(
-                    |state, query: Query<AzureDeploymentsQuery>| async move {
-                        handlers::handle_list_models_azure(state, query).await
+                    |state, headers, query: Query<AzureDeploymentsQuery>| async move {
+                        handlers::handle_list_models_azure(state, headers, query).await
                     },
                 ),
             )

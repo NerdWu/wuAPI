@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Edit, Plus, RefreshCw, Save, Trash2, Power, PowerOff, XCircle, FileText } from 'lucide-react';
+import { Copy, Edit, Plus, RefreshCw, Save, Trash2, Power, PowerOff, XCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -320,7 +320,7 @@ export const ChannelManager: React.FC = () => {
               <col className="w-24" />
               <col className="w-24" />
               <col className="w-24" />
-              <col className="w-32" />
+              <col className="w-40" />
             </colgroup>
             <thead className="bg-muted/50">
               <tr className="border-b border-border">
@@ -437,6 +437,7 @@ export const ChannelManager: React.FC = () => {
                   <ChannelRow
                     key={channel.id}
                     channel={channel}
+                    allChannels={channels}
                     expanded={expandedId === channel.id}
                     onToggle={() => setExpandedId((current) => (current === channel.id ? null : channel.id))}
                     onEdit={() => openEdit(channel)}
@@ -480,6 +481,7 @@ export const ChannelManager: React.FC = () => {
 
 function ChannelRow({
   channel,
+  allChannels,
   expanded,
   onToggle,
   onEdit,
@@ -490,6 +492,7 @@ function ChannelRow({
   entryCountMap,
 }: {
   channel: Channel;
+  allChannels: Channel[];
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -503,12 +506,63 @@ function ChannelRow({
   const api = useApiAdapter();
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [probing, setProbing] = useState(false);
   const [probeResult, setProbeResult] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const availableModels = channel.available_models ?? [];
   const selectedModels = channel.selected_models ?? [];
+
+  const stripCircleSuffix = (name: string): string => name.replace(/[\u2460-\u2473]+$/, '');
+
+  const nextCircleName = (baseName: string): string => {
+    const circles = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+    const used = new Set<number>();
+
+    for (const item of allChannels) {
+      if (stripCircleSuffix(item.name) !== baseName) continue;
+      const suffix = item.name.slice(baseName.length);
+      if (!suffix) {
+        used.add(0);
+        continue;
+      }
+      for (const char of suffix) {
+        const index = circles.indexOf(char);
+        if (index >= 0) used.add(index + 1);
+      }
+    }
+
+    for (let n = 1; n <= circles.length; n += 1) {
+      if (!used.has(n)) return `${baseName}${circles[n - 1]}`;
+    }
+
+    return `${baseName} (${used.size})`;
+  };
+
+  const copyChannel = async () => {
+    setCopying(true);
+    setRowError(null);
+    try {
+      const baseName = stripCircleSuffix(channel.name);
+      const created = await api.channels.create({
+        name: nextCircleName(baseName),
+        api_type: channel.api_type,
+        base_url: channel.base_url,
+        api_key: '',
+        notes: channel.notes ?? '',
+      });
+      await api.channels.update({ id: created.id, enabled: false });
+      await onChanged();
+      toast.success(t('channel.copySuccess', { name: created.name }));
+    } catch (err) {
+      const message = getChannelErrorMessage(err, t('channel.copyFailed', '复制渠道失败'));
+      setRowError(message);
+      toast.error(message);
+    } finally {
+      setCopying(false);
+    }
+  };
 
   const toggleEnabled = async () => {
     setSaving(true);
@@ -624,6 +678,9 @@ function ChannelRow({
           <div className="flex justify-end gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(event) => { event.stopPropagation(); onEdit(); }} title={t('common.edit')}>
               <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(event) => { event.stopPropagation(); copyChannel(); }} disabled={copying} title={t('channel.copy')}>
+              <Copy className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(event) => { event.stopPropagation(); toggleEnabled(); }} disabled={saving} title={channel.enabled ? t('channel.disabled') : t('channel.enabled')}>
               {channel.enabled ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}

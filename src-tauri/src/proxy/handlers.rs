@@ -8,7 +8,7 @@ use super::protocol::{
 use super::router;
 use super::server::ProxyState;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::{json, Value};
@@ -36,6 +36,114 @@ fn normalize_requested_model(model: Option<&str>) -> String {
         "auto".to_string()
     } else {
         trimmed.to_string()
+    }
+}
+
+fn hex_val(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn percent_decode_utf8(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let (Some(hi), Some(lo)) = (hex_val(bytes[index + 1]), hex_val(bytes[index + 2])) {
+                output.push((hi << 4) | lo);
+                index += 3;
+                continue;
+            }
+        }
+
+        output.push(bytes[index]);
+        index += 1;
+    }
+
+    String::from_utf8(output).unwrap_or_else(|_| input.to_string())
+}
+
+fn extract_model_group(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-model-group")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(percent_decode_utf8)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn filter_entries_by_group(
+    entries: Vec<crate::database::ApiEntry>,
+    model_group: Option<&str>,
+) -> Vec<crate::database::ApiEntry> {
+    match model_group {
+        Some(group) => entries
+            .into_iter()
+            .filter(|entry| {
+                entry
+                    .group_name
+                    .as_deref()
+                    .map(|name| name.eq_ignore_ascii_case(group))
+                    .unwrap_or(false)
+            })
+            .collect(),
+        None => entries,
+    }
+}
+
+async fn resolve_route_entries(
+    state: &ProxyState,
+    requested_model: &str,
+    requested_group: Option<&str>,
+    all_entries: &[crate::database::ApiEntry],
+    auto_entries: &[crate::database::ApiEntry],
+    sort_mode: &str,
+) -> Vec<crate::database::ApiEntry> {
+    let Some(group) = requested_group else {
+        return router::resolve(
+            requested_model,
+            all_entries,
+            auto_entries,
+            &state.circuit_breakers,
+            sort_mode,
+        )
+        .await;
+    };
+
+    let group_entries = router::resolve(
+        group,
+        all_entries,
+        auto_entries,
+        &state.circuit_breakers,
+        sort_mode,
+    )
+    .await;
+
+    if group_entries.is_empty() || requested_model.eq_ignore_ascii_case("auto") {
+        return group_entries;
+    }
+
+    let matched_entries = router::resolve(
+        requested_model,
+        &group_entries,
+        &[],
+        &state.circuit_breakers,
+        sort_mode,
+    )
+    .await;
+
+    if matched_entries.is_empty() {
+        group_entries
+    } else {
+        matched_entries
     }
 }
 
@@ -240,6 +348,7 @@ pub async fn handle_chat_completions(
         .map_err(|e| ProxyError::Internal(format!("Failed to parse JSON: {e}")))?;
 
     let requested_model = normalize_requested_model(body.get("model").and_then(|m| m.as_str()));
+    let requested_group = extract_model_group(headers);
 
     let is_stream = body
         .get("stream")
@@ -252,11 +361,12 @@ pub async fn handle_chat_completions(
     let all_entries = state.db.get_entries_for_routing()?;
     let auto_entries = state.db.get_enabled_entries_for_auto()?;
     let sort_mode = state.settings.read().await.default_sort_mode.clone();
-    let resolved = router::resolve(
+    let resolved = resolve_route_entries(
+        &state,
         &requested_model,
+        requested_group.as_deref(),
         &all_entries,
         &auto_entries,
-        &state.circuit_breakers,
         &sort_mode,
     )
     .await;
@@ -317,6 +427,7 @@ pub async fn handle_messages(
 
     let requested_model =
         normalize_requested_model(openai_body.get("model").and_then(|m| m.as_str()));
+    let requested_group = extract_model_group(headers);
 
     let is_stream = openai_body
         .get("stream")
@@ -327,11 +438,12 @@ pub async fn handle_messages(
     let all_entries = state.db.get_entries_for_routing()?;
     let auto_entries = state.db.get_enabled_entries_for_auto()?;
     let sort_mode = state.settings.read().await.default_sort_mode.clone();
-    let resolved = router::resolve(
+    let resolved = resolve_route_entries(
+        &state,
         &requested_model,
+        requested_group.as_deref(),
         &all_entries,
         &auto_entries,
-        &state.circuit_breakers,
         &sort_mode,
     )
     .await;
@@ -381,8 +493,12 @@ pub async fn handle_messages(
 /// disabled only means "skip in AUTO", the model is still usable when requested by name.
 pub async fn handle_list_models(
     State(state): State<ProxyState>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, ProxyError> {
-    let entries = dedup_models_by_name(load_sorted_entries(&state).await?);
+    let entries = filter_entries_by_group(
+        dedup_models_by_name(load_sorted_entries(&state).await?),
+        extract_model_group(&headers).as_deref(),
+    );
 
     let mut group_set: HashSet<String> = HashSet::new();
     for e in &entries {
@@ -421,8 +537,12 @@ pub async fn handle_list_models(
 /// Handle /anthropic/v1/models - Anthropic native model list format.
 pub async fn handle_list_models_claude(
     State(state): State<ProxyState>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, ProxyError> {
-    let entries = dedup_models_by_name(load_sorted_entries(&state).await?);
+    let entries = filter_entries_by_group(
+        dedup_models_by_name(load_sorted_entries(&state).await?),
+        extract_model_group(&headers).as_deref(),
+    );
     let data: Vec<Value> = entries.iter().map(claude_model_item).collect();
 
     let first_id = data
@@ -447,8 +567,12 @@ pub async fn handle_list_models_claude(
 /// Handle /v1beta/models - Gemini native model list format.
 pub async fn handle_list_models_gemini(
     State(state): State<ProxyState>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, ProxyError> {
-    let entries = dedup_models_by_name(load_sorted_entries(&state).await?);
+    let entries = filter_entries_by_group(
+        dedup_models_by_name(load_sorted_entries(&state).await?),
+        extract_model_group(&headers).as_deref(),
+    );
     let models: Vec<Value> = entries.iter().map(gemini_model_item).collect();
 
     Ok(Json(json!({
@@ -459,9 +583,13 @@ pub async fn handle_list_models_gemini(
 /// Handle /openai/deployments - Azure deployment list format.
 pub async fn handle_list_models_azure(
     State(state): State<ProxyState>,
+    headers: HeaderMap,
     Query(_query): Query<super::server::AzureDeploymentsQuery>,
 ) -> Result<Json<Value>, ProxyError> {
-    let entries = dedup_models_by_name(load_sorted_entries(&state).await?);
+    let entries = filter_entries_by_group(
+        dedup_models_by_name(load_sorted_entries(&state).await?),
+        extract_model_group(&headers).as_deref(),
+    );
     let data: Vec<Value> = entries.iter().map(azure_deployment_item).collect();
 
     Ok(Json(json!({
@@ -514,15 +642,17 @@ async fn handle_gemini_generate_content(
     openai_body["model"] = json!(model);
 
     let requested_model = normalize_requested_model(Some(model));
+    let requested_group = extract_model_group(headers);
 
     let all_entries = state.db.get_entries_for_routing()?;
     let auto_entries = state.db.get_enabled_entries_for_auto()?;
     let sort_mode = state.settings.read().await.default_sort_mode.clone();
-    let resolved = router::resolve(
+    let resolved = resolve_route_entries(
+        &state,
         &requested_model,
+        requested_group.as_deref(),
         &all_entries,
         &auto_entries,
-        &state.circuit_breakers,
         &sort_mode,
     )
     .await;
@@ -588,15 +718,17 @@ async fn handle_gemini_stream_generate_content(
     openai_body["stream"] = json!(true);
 
     let requested_model = normalize_requested_model(Some(model));
+    let requested_group = extract_model_group(headers);
 
     let all_entries = state.db.get_entries_for_routing()?;
     let auto_entries = state.db.get_enabled_entries_for_auto()?;
     let sort_mode = state.settings.read().await.default_sort_mode.clone();
-    let resolved = router::resolve(
+    let resolved = resolve_route_entries(
+        &state,
         &requested_model,
+        requested_group.as_deref(),
         &all_entries,
         &auto_entries,
-        &state.circuit_breakers,
         &sort_mode,
     )
     .await;
@@ -675,6 +807,7 @@ pub async fn handle_azure_chat(
 
     let requested_model =
         normalize_requested_model(openai_body.get("model").and_then(|m| m.as_str()));
+    let requested_group = extract_model_group(headers);
 
     let is_stream = openai_body
         .get("stream")
@@ -690,17 +823,29 @@ pub async fn handle_azure_chat(
         all_entries
             .iter()
             .filter(|e| e.enabled)
+            .filter(|e| {
+                requested_group
+                    .as_deref()
+                    .map(|group| {
+                        e.group_name
+                            .as_deref()
+                            .map(|name| name.eq_ignore_ascii_case(group))
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or(true)
+            })
             .filter(|e| e.model.to_ascii_lowercase() == deployment_lower)
             .cloned()
             .collect()
     };
 
     if resolved.is_empty() {
-        resolved = router::resolve(
+        resolved = resolve_route_entries(
+            &state,
             &requested_model,
+            requested_group.as_deref(),
             &all_entries,
             &auto_entries,
-            &state.circuit_breakers,
             &sort_mode,
         )
         .await;
@@ -803,6 +948,22 @@ mod tests {
         let items = dedup_models_by_name(vec![first.clone(), second]);
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].id, first.id);
+    }
+
+    #[test]
+    fn percent_decode_utf8_decodes_encoded_group_names() {
+        assert_eq!(percent_decode_utf8("%E7%BC%96%E7%A8%8B"), "编程");
+    }
+
+    #[test]
+    fn filter_entries_by_group_keeps_matching_group_only() {
+        let coding = sample_entry("1", "gpt-4o", "GPT-4o", Some("coding"));
+        let other = sample_entry("2", "claude-3-5-sonnet", "Claude", Some("other"));
+
+        let items = filter_entries_by_group(vec![coding.clone(), other], Some("CODING"));
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, coding.id);
     }
 }
 

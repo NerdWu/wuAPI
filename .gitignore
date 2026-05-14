@@ -22,7 +22,6 @@ query_logs.py
 query_logs2.py
 
 # Personal planning & dev notes
-AGENTS.md
 PROTOCOL_ENVELOPE_DESIGN.md
 
 GENERIC_AGENT_FLOATING_AGENT_PLAN.md
@@ -38,7 +37,6 @@ BUG.MD
 log.md
 pool-for-group-test.md
 docs/
-cli.json
 src-tauri/src/services/learnings_translation.md
 
 # Rust / Tauri

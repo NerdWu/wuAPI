@@ -1,6 +1,6 @@
 ﻿{
   "app": {
-    "title": "API Switch"
+    "title": "wuAPI"
   },
   "nav": {
     "apiPool": "API Mgmt",
@@ -482,7 +482,7 @@
     "tryReload": "An error occurred while rendering this page. You can try to reload it."
   },
   "auth": {
-    "title": "API Switch Web Admin",
+    "title": "wuAPI Web Admin",
     "subtitle": "Login with Web Admin account",
     "username": "Username",
     "password": "Password",
@@ -508,7 +508,7 @@
   },
   "guide": {
     "title": "Quick Start",
-    "description": "What makes API Switch special:",
+    "description": "What makes wuAPI special:",
     "step1": {
       "title": "Never Goes Down",
       "desc": "Set model to auto to match the best channel automatically; when using a specific model and the channel fails, it falls back to an available one — zero downtime guaranteed"

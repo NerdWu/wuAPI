@@ -1,4 +1,4 @@
-# API Switch User Guide
+# wuAPI User Guide
 
 ## Quick Start
 
@@ -116,4 +116,4 @@ Indicates that the requested model is `auto`, and the text after the parentheses
 
 ---
 
-> This document is continuously updated. If you encounter other issues, feel free to open an [Issue](https://github.com/wang1970/API-Switch/issues).
+> This document is continuously updated. If you encounter other issues, feel free to open an [Issue](https://github.com/NerdWu/wuAPI/issues).

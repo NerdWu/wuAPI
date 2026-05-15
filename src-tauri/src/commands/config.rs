@@ -66,7 +66,7 @@ Some(app.clone()),
     Ok(())
 }
 
-const GITHUB_REPO: &str = "wang1970/API-Switch";
+const GITHUB_REPO: &str = "NerdWu/wuAPI";
 
 #[derive(Deserialize)]
 struct GithubRelease {
@@ -91,7 +91,7 @@ pub async fn check_update() -> Result<Option<serde_json::Value>, AppError> {
 
     let resp = client
         .get(&url)
-        .header("User-Agent", "api-switch")
+        .header("User-Agent", "wuAPI")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
@@ -119,7 +119,7 @@ pub async fn check_update() -> Result<Option<serde_json::Value>, AppError> {
 }
 
 fn sync_autostart(settings: &AppSettings) {
-    let app_name = "API Switch";
+    let app_name = "wuAPI";
     let exe = match std::env::current_exe() {
         Ok(e) => e,
         Err(e) => {

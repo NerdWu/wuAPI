@@ -75,7 +75,7 @@ export function MainShell({
           <div className="flex items-center gap-2 px-4 py-4">
             <Power className={cn('h-5 w-5', proxyStatus?.running ? 'text-green-500' : 'text-red-500')} />
             <span className="text-lg font-semibold">
-              {proxyStatus?.running ? `API Switch: ${proxyStatus.port}` : 'API Switch'}
+              {proxyStatus?.running ? `wuAPI: ${proxyStatus.port}` : 'wuAPI'}
             </span>
           </div>
 
@@ -124,7 +124,7 @@ export function MainShell({
 
           <div className="px-2 pb-4">
             <div className="flex justify-center">
-              <a href="https://github.com/wang1970/API-Switch" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/NerdWu/wuAPI" target="_blank" rel="noopener noreferrer">
                 <img src={starImageSrc} alt="Star on GitHub" className="cursor-pointer transition-opacity hover:opacity-80" />
               </a>
             </div>

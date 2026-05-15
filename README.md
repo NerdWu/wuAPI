@@ -1,4 +1,4 @@
-# API Switch
+# wuAPI
 
 > Personal AI API Management & Forwarding Hub
 
@@ -24,7 +24,7 @@ Manage multiple AI API providers through a single endpoint with automatic failov
 
 ## 🚀 Quick Start
 
-1. Download from [Releases](https://github.com/wang1970/API-Switch/releases)
+1. Download from [Releases](https://github.com/NerdWu/wuAPI/releases)
 2. Run — database is auto-created in the same directory
 3. Go to **Channels** to add API providers, fetch and select models
 4. Go to **API Management** to view and enable models
@@ -52,12 +52,12 @@ Model: auto (smart match) or any specific model name
 
 | Platform | File |
 |----------|------|
-| Windows x64 | `api-switch-*-windows-x64.exe` |
-| macOS Intel | `api-switch-*-macos-x64` |
-| macOS Apple Silicon | `api-switch-*-macos-arm64` |
-| Linux x64 | `api-switch-*-linux-x64` |
+| Windows x64 | `wuAPI-*-windows-x64.exe` |
+| macOS Intel | `wuAPI-*-macos-x64` |
+| macOS Apple Silicon | `wuAPI-*-macos-arm64` |
+| Linux x64 | `wuAPI-*-linux-x64` |
 
-Visit [Releases](https://github.com/wang1970/API-Switch/releases) for the latest version.
+Visit [Releases](https://github.com/NerdWu/wuAPI/releases) for the latest version.
 
 ---
 
@@ -73,7 +73,7 @@ Visit [Releases](https://github.com/wang1970/API-Switch/releases) for the latest
 
 ### CODING PLAN / Relay Stations
 
-Relay stations (like CODING PLAN) often don't expose a standard `/models` endpoint. API Switch supports these via:
+Relay stations (like CODING PLAN) often don't expose a standard `/models` endpoint. wuAPI supports these via:
 
 1. Set API type to **Custom**, enter the base URL and API key
 2. Click **Fetch Models** — auto-detection tries multiple protocols and paths as fallback
@@ -121,7 +121,7 @@ Cooldown recovery time defaults to 600s (adjustable via slider in **Settings →
 ## 📁 File Structure
 
 ```
-api-switch.exe          # Main program (portable)
+wuAPI.exe               # Main program (portable)
 api-switch.db           # Database (auto-created on first run)
 ```
 
@@ -137,4 +137,4 @@ All data is stored alongside the executable. Delete both files to completely rem
 
 ## ⭐ Star
 
-If you find it useful, consider giving it a Star on [GitHub](https://github.com/wang1970/API-Switch)!
+If you find it useful, consider giving it a Star on [GitHub](https://github.com/NerdWu/wuAPI)!

@@ -42,11 +42,11 @@ export function SettingsPage() {
   const update = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     if (key === "locale") {
       i18n.changeLanguage(value as string);
-      localStorage.setItem("api-switch-locale", value as string);
+      localStorage.setItem("wuapi-locale", value as string);
     }
     if (key === "active_group") {
       // Persist the remembered default group for the API Management page locally for faster UI restoration.
-      localStorage.setItem("api-switch-default-group", value as string);
+      localStorage.setItem("wuapi-default-group", value as string);
     }
     updateMutation.mutate({ ...s, [key]: value });
   };

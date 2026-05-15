@@ -47,7 +47,7 @@ pub struct AppState {
     pub runtime_mode: RuntimeMode,
 }
 
-pub(crate) const TRAY_ID: &str = "api-switch-tray";
+pub(crate) const TRAY_ID: &str = "wuapi-tray";
 pub(crate) const EXPERIMENTAL_LAZY_TRAY_REFRESH: bool = false;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -246,7 +246,7 @@ Some(handle.clone()),
             log::info!("Running in Standalone mode - skipping tray and window management");
         }
 
-            log::info!("API Switch initialized");
+            log::info!("wuAPI initialized");
             Ok(())
         })
     .invoke_handler(tauri::generate_handler![
@@ -446,7 +446,7 @@ fn handle_tray_menu_event(app: &tauri::AppHandle, event_id: &str) {
 /// 检测是否进入 headless 模式
 fn should_run_headless(mode: RuntimeMode, source: ModeSource) -> bool {
     match source {
-        // 用户明确指定了 --headless/--nodisktop 或 API_SWITCH_HEADLESS=1
+        // 用户明确指定了 --headless/--nodisktop 或 WUAPI_HEADLESS=1
         ModeSource::Cli | ModeSource::Env => mode == RuntimeMode::Standalone,
         // 没指定参数，自动检测桌面环境
         ModeSource::Auto => !has_desktop(),
@@ -537,7 +537,7 @@ fn run_headless() {
 
         let port = settings_snapshot.listen_port;
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  API Switch is running");
+        println!("  wuAPI is running");
         println!("  Proxy:      http://127.0.0.1:{}/v1/...", port);
         println!("  Web Admin:  http://127.0.0.1:{}", port);
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

@@ -1,4 +1,4 @@
-# API Switch
+# wuAPI
 
 > 个人 AI API 管理与转发中心
 > 多渠道路由 · 自动故障转移 · 一键测速 · 桌面便携
@@ -25,7 +25,7 @@
 
 ## 🚀 快速开始
 
-1. 从 [Releases](https://github.com/wang1970/API-Switch/releases) 下载对应平台版本
+1. 从 [Releases](https://github.com/NerdWu/wuAPI/releases) 下载对应平台版本
 2. 运行 — 数据库自动创建在同目录下
 3. 进入 **渠道管理** 添加 API 渠道，拉取并选择模型
 4. 进入 **API 管理** 查看和启用模型
@@ -53,12 +53,12 @@ Model: auto（智能匹配）或指定模型名
 
 | 平台 | 文件 |
 |------|------|
-| Windows x64 | `api-switch-*-windows-x64.exe` |
-| macOS Intel | `api-switch-*-macos-x64` |
-| macOS Apple Silicon | `api-switch-*-macos-arm64` |
-| Linux x64 | `api-switch-*-linux-x64` |
+| Windows x64 | `wuAPI-*-windows-x64.exe` |
+| macOS Intel | `wuAPI-*-macos-x64` |
+| macOS Apple Silicon | `wuAPI-*-macos-arm64` |
+| Linux x64 | `wuAPI-*-linux-x64` |
 
-访问 [Releases](https://github.com/wang1970/API-Switch/releases) 获取最新版本。
+访问 [Releases](https://github.com/NerdWu/wuAPI/releases) 获取最新版本。
 
 ---
 
@@ -74,7 +74,7 @@ Model: auto（智能匹配）或指定模型名
 
 ### CODING PLAN / 中转站
 
-中转站（如 CODING PLAN）通常不提供标准的 `/models` 接口。API Switch 通过以下方式支持：
+中转站（如 CODING PLAN）通常不提供标准的 `/models` 接口。wuAPI 通过以下方式支持：
 
 1. API 类型选择 **Custom**，填入 Base URL 和 API Key
 2. 点击 **拉取模型** — 自动检测多种协议和路径作为 Fallback
@@ -122,7 +122,7 @@ Model: auto（智能匹配）或指定模型名
 ## 📁 文件结构
 
 ```
-api-switch.exe          # 主程序（绿色便携版）
+wuAPI.exe               # 主程序（绿色便携版）
 api-switch.db           # 数据库（首次运行自动创建）
 ```
 
@@ -138,4 +138,4 @@ api-switch.db           # 数据库（首次运行自动创建）
 
 ## ⭐ Star
 
-如果觉得有用，欢迎在 [GitHub](https://github.com/wang1970/API-Switch) 上点个 Star！
+如果觉得有用，欢迎在 [GitHub](https://github.com/NerdWu/wuAPI) 上点个 Star！

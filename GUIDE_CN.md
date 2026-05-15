@@ -1,4 +1,4 @@
-# API Switch 使用指南
+# wuAPI 使用指南
 
 ## 快速开始
 
@@ -35,7 +35,7 @@ API Key 留空即可（未开启访问密钥验证时）。
 
 ## 上游 API 类型
 
-API Switch 支持接入以下类型的上游 API 服务：
+wuAPI 支持接入以下类型的上游 API 服务：
 
 | API 类型 | 说明 | 默认 Base URL |
 |----------|------|---------------|
@@ -58,16 +58,16 @@ API Switch 支持接入以下类型的上游 API 服务：
 
 ```bash
 # 方式一：命令行参数
-./api-switch --headless
+./wuAPI --headless
 
 # 或
-./api-switch --standalone
+./wuAPI --standalone
 # --nodisktop 同样效果
 ```
 
 ```bash
 # 方式二：环境变量
-API_SWITCH_HEADLESS=1 ./api-switch
+WUAPI_HEADLESS=1 ./wuAPI
 ```
 
 > **Linux 无桌面环境**：系统没有 `DISPLAY` 或 `WAYLAND_DISPLAY` 时会自动进入 Headless 模式，无需手动指定参数。
@@ -76,7 +76,7 @@ API_SWITCH_HEADLESS=1 ./api-switch
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  API Switch is running
+  wuAPI is running
   Proxy:      http://127.0.0.1:9090/v1/...
   Web Admin:  http://127.0.0.1:9090
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -95,7 +95,7 @@ API_SWITCH_HEADLESS=1 ./api-switch
 
 登录后可查看仪表盘、管理渠道和 API、查看日志等。默认用户/密码可在「系统设置 → Web 管理」中修改。
 
-> **环境变量覆盖**：启动前设置 `API_SWITCH_ADMIN_USER` 和 `API_SWITCH_ADMIN_PASS` 可覆盖默认管理员账号密码。
+> **环境变量覆盖**：启动前设置 `WUAPI_ADMIN_USER` 和 `WUAPI_ADMIN_PASS` 可覆盖默认管理员账号密码。
 
 ---
 
@@ -141,7 +141,7 @@ Web 管理端口可在「系统设置 → Web 管理」中修改。
 
 ---
 
-## CODING PLAN / API-Switch 推荐配置
+## CODING PLAN / wuAPI 推荐配置
 
 ### MiniMax（硅基流动）
 
@@ -224,4 +224,4 @@ Web 管理端口可在「系统设置 → Web 管理」中修改。
 
 ---
 
-> 本文档会持续更新，如果遇到其他问题欢迎提 [Issue](https://github.com/wang1970/API-Switch/issues)。
+> 本文档会持续更新，如果遇到其他问题欢迎提 [Issue](https://github.com/NerdWu/wuAPI/issues)。

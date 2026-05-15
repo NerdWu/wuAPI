@@ -22,7 +22,7 @@ type WebAuthViewState =
   | { state: "server_unreachable"; message: string }
   | { state: "expired"; message: string };
 
-const GUIDE_BASE = "https://github.com/wang1970/API-Switch/blob/master/";
+const GUIDE_BASE = "https://github.com/NerdWu/wuAPI/blob/master/";
 
 function MainApp({ onLogout }: { onLogout?: () => void }) {
   const { i18n } = useTranslation();
@@ -69,7 +69,7 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
   useEffect(() => {
     if (!isDesktop) return;
     import("@tauri-apps/api/app").then(({ getVersion }) => {
-      getVersion().then((v: string) => { document.title = `API-Switch - ${v}`; });
+      getVersion().then((v: string) => { document.title = `wuAPI - ${v}`; });
     });
   }, [isDesktop]);
 
@@ -84,7 +84,7 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
 
   useEffect(() => {
     if (!settings) return;
-    const saved = localStorage.getItem("api-switch-locale");
+    const saved = localStorage.getItem("wuapi-locale");
     if (!saved && settings.locale) i18n.changeLanguage(settings.locale);
     const root = document.documentElement;
     if (settings.theme === "dark") root.classList.add("dark");

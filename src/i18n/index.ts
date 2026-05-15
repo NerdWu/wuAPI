@@ -5,7 +5,7 @@ import en from "./locales/en.json";
 
 function detectLocale(): string {
   // 1. 用户之前选择的
-  const saved = localStorage.getItem("api-switch-locale");
+  const saved = localStorage.getItem("wuapi-locale");
   if (saved === "zh" || saved === "en") return saved;
   // 2. 系统语言
   const nav = navigator.language || "";

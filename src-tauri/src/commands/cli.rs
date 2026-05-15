@@ -46,7 +46,7 @@ pub async fn get_cli_data() -> Result<Option<serde_json::Value>, AppError> {
 
     let resp = client
         .get(REMOTE_URL)
-        .header("User-Agent", "api-switch")
+        .header("User-Agent", "wuAPI")
         .send()
         .await;
 

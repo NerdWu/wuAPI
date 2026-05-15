@@ -1,6 +1,6 @@
 ﻿{
   "app": {
-    "title": "API Switch"
+    "title": "wuAPI"
   },
   "nav": {
     "apiPool": "API 管理",
@@ -483,7 +483,7 @@
     "tryReload": "渲染页面时出错。您可以尝试重新加载。"
   },
   "auth": {
-    "title": "API Switch Web 管理",
+    "title": "wuAPI Web 管理",
     "subtitle": "使用 Web 管理账号登录",
     "username": "用户名",
     "password": "密码",
@@ -509,7 +509,7 @@
   },
   "guide": {
     "title": "快速上手",
-    "description": "API Switch 核心特色：",
+    "description": "wuAPI 核心特色：",
     "step1": {
       "title": "永不中断",
       "desc": "模型填 auto 自动匹配最优渠道；指定模型在渠道失效后会自动回退到可用渠道，保证服务不中断"

@@ -1,5 +1,5 @@
 [package]
-name = "api-switch"
+name = "wuAPI"
 version = "0.6.9"
 description = "Personal API Management & Forwarding Center"
 authors = ["you"]
@@ -8,7 +8,7 @@ edition = "2021"
 rust-version = "1.85.0"
 
 [lib]
-name = "api_switch_lib"
+name = "wuapi_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 doctest = false
 

@@ -22,15 +22,17 @@ pub fn detect_runtime_mode() -> (RuntimeMode, ModeSource) {
         }
     }
 
-    // 2. Check env vars: API_SWITCH_HEADLESS=1 or API_SWITCH_STANDALONE=1
-    if let Ok(val) = std::env::var("API_SWITCH_HEADLESS") {
-        if val == "1" || val == "true" {
-            return (RuntimeMode::Standalone, ModeSource::Env);
-        }
-    }
-    if let Ok(val) = std::env::var("API_SWITCH_STANDALONE") {
-        if val == "1" || val == "true" {
-            return (RuntimeMode::Standalone, ModeSource::Env);
+    // 2. Check env vars. Keep legacy API_SWITCH_* names as aliases for compatibility.
+    for key in [
+        "WUAPI_HEADLESS",
+        "WUAPI_STANDALONE",
+        "API_SWITCH_HEADLESS",
+        "API_SWITCH_STANDALONE",
+    ] {
+        if let Ok(val) = std::env::var(key) {
+            if val == "1" || val.eq_ignore_ascii_case("true") {
+                return (RuntimeMode::Standalone, ModeSource::Env);
+            }
         }
     }
 

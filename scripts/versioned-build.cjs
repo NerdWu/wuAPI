@@ -23,13 +23,13 @@ function timestamp() {
 const version = pkg.version;
 const stamp = timestamp();
 const exeName = `${pkg.name}_${version}_${stamp}.exe`;
-const source = path.join(root, "src-tauri", "target", "release", "api-switch.exe");
+const source = path.join(root, "src-tauri", "target", "release", "wuAPI.exe");
 const outDir = path.join(root, "release");
 const target = path.join(outDir, exeName);
 
 if (!fs.existsSync(source)) {
   console.error(`Build output not found: ${source}`);
-  console.error("Run `pnpm tauri build` before renaming the local build.");
+  console.error("Run `corepack pnpm tauri build` before renaming the local build.");
   process.exit(1);
 }
 

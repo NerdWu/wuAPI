@@ -191,7 +191,7 @@ mod claude_roundtrip {
             "model": TEST_MODEL,
             "messages": [{"role": "user", "content": "Hi"}],
             "max_tokens": 1024,
-            "x_api_switch_tracking_id": "abc-123",
+            "x_wuapi_tracking_id": "abc-123",
             "x_future_anthropic_field": {"nested": "value"}
         });
 
@@ -199,8 +199,8 @@ mod claude_roundtrip {
 
         // 中间格式里自定义字段应该还在
         assert_eq!(
-            openai_intermediate["x_api_switch_tracking_id"], "abc-123",
-            "claude_to_openai 丢失了 top-level 自定义字段 x_api_switch_tracking_id"
+            openai_intermediate["x_wuapi_tracking_id"], "abc-123",
+            "claude_to_openai 丢失了 top-level 自定义字段 x_wuapi_tracking_id"
         );
         assert_eq!(
             openai_intermediate["x_future_anthropic_field"]["nested"], "value",
@@ -213,7 +213,7 @@ mod claude_roundtrip {
 
         // 还原后仍然在
         assert_eq!(
-            back_to_claude["x_api_switch_tracking_id"], "abc-123",
+            back_to_claude["x_wuapi_tracking_id"], "abc-123",
             "ClaudeAdapter.transform_request 丢失了自定义字段"
         );
         assert_eq!(

@@ -173,8 +173,12 @@ pub async fn restart_admin(
 }
 
 pub fn apply_admin_env(settings: &mut AppSettings) {
-    let user = std::env::var("API_SWITCH_ADMIN_USER").unwrap_or_default();
-    let pass = std::env::var("API_SWITCH_ADMIN_PASS").unwrap_or_default();
+    let user = std::env::var("WUAPI_ADMIN_USER")
+        .or_else(|_| std::env::var("API_SWITCH_ADMIN_USER"))
+        .unwrap_or_default();
+    let pass = std::env::var("WUAPI_ADMIN_PASS")
+        .or_else(|_| std::env::var("API_SWITCH_ADMIN_PASS"))
+        .unwrap_or_default();
     if !user.trim().is_empty() && !pass.is_empty() {
         settings.web_admin_enabled = true;
         settings.web_admin_username = user;

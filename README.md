@@ -1,140 +1,127 @@
 # wuAPI
 
-> Personal AI API Management & Forwarding Hub
+> Personal AI API management and forwarding hub
 
-Manage multiple AI API providers through a single endpoint with automatic failover — never go down.
+Manage multiple AI API providers through a single local endpoint with automatic failover, group-based routing, and a portable desktop workflow.
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
-|---------|-------------|
-| **Multi-Provider Routing** | One endpoint for multiple AI providers, auto-match or manually specify models |
-| **Never Goes Down** | Set model to `auto` for optimal channel matching; auto-cooldown on failure and switch to next available |
-| **One-Click Speed Test** | Test all channels & models sequentially — green response time for success, red ✗ for failure |
-| **Smart Circuit Breaker** | Auto-disable unrecoverable models (401/403/410), cooldown skips failed models, auto-recover on success |
-| **Auto Channel Calibration** | One-click model fetch with auto API type detection, Base URL correction, relay station model discovery |
-| **Smart Model Pre-selection** | Auto-select models released within 6 months + existing models; new entries enabled by default |
-| **System Tray** | Right-click tray icon to reprioritize top AUTO-group entries without opening the main window |
-| **Bilingual** | UI and user guide support Chinese/English |
-| **Portable** | Single EXE file, data stored alongside the executable, copy and run anywhere |
+|---|---|
+| Multi-provider routing | Use one endpoint for multiple upstream AI providers. |
+| Auto failover | Skip cooled-down entries and continue routing to the next available provider. |
+| API pool groups | Route by `auto`, exact group name, or exact model name. |
+| One-click latency test | Test entries in sequence and record the latest response result. |
+| Circuit breaker | Cool down failed entries, auto-recover on success, and auto-disable unrecoverable statuses. |
+| Portable desktop app | Runs as a local Tauri app with data stored next to the executable. |
+| Web admin | Includes a browser-based admin surface in current upstream architecture. |
+| Bilingual UI | Chinese and English guides and interface text are both available. |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-1. Download from [Releases](https://github.com/NerdWu/wuAPI/releases)
-2. Run — database is auto-created in the same directory
-3. Go to **Channels** to add API providers, fetch and select models
-4. Go to **API Management** to view and enable models
-5. Point your client's API base URL to `http://127.0.0.1:9090`, set model to `auto` or any specific name
+1. Download a Windows build from [Releases](https://github.com/NerdWu/wuAPI/releases).
+2. Run `wuAPI.exe`. The local database is created automatically next to the executable.
+3. In **Channel Management**, add providers and fetch models.
+4. In **API Management**, enable the entries you want to route through.
+5. Point your client to `http://127.0.0.1:9090/v1`.
 
 ### Client Setup
 
-```
-API Base URL: http://127.0.0.1:9090
-API Key: anything (enforce validation in Settings if needed)
-Model: auto (smart match) or any specific model name
+```text
+API Base URL: http://127.0.0.1:9090/v1
+API Key: anything (unless access key enforcement is enabled)
+Model: auto
 ```
 
 ### Routing Rules
 
-| Mode | Behavior |
-|------|----------|
-| `model: auto` | Automatically select from enabled, non-cooled AUTO-group entries by priority |
-| `model: coding` | First try case-insensitive group exact match, then model-name fuzzy match, then fall back to the AUTO group |
-| Tray right-click | Reprioritize existing AUTO-group entries only; it does not switch groups |
+| Request model | Behavior |
+|---|---|
+| `auto` | Select from enabled, non-cooled AUTO-group entries by priority. |
+| `<group-name>` | Try exact group match first, then fall back according to current routing rules. |
+| `<model-name>` | Try exact model/display name matching before fallback. |
 
 ---
 
-## 📦 Downloads
+## Supported Providers
 
-| Platform | File |
-|----------|------|
-| Windows x64 | `wuAPI-*-windows-x64.exe` |
-| macOS Intel | `wuAPI-*-macos-x64` |
-| macOS Apple Silicon | `wuAPI-*-macos-arm64` |
-| Linux x64 | `wuAPI-*-linux-x64` |
-
-Visit [Releases](https://github.com/NerdWu/wuAPI/releases) for the latest version.
-
----
-
-## 🔧 Supported Providers
-
-| Type | Auth Method | Description |
-|------|-------------|-------------|
-| OpenAI | Bearer Token | Standard OpenAI API |
-| Anthropic | x-api-key | Claude series models, full format conversion |
-| Google Gemini | Query Parameter | OpenAI-compatible endpoint |
-| Azure OpenAI | api-key Header | Deployment name routing |
-| Custom | Bearer Token | Any OpenAI-compatible third-party service (CODING PLAN, SiliconFlow, etc.) |
-
-### CODING PLAN / Relay Stations
-
-Relay stations (like CODING PLAN) often don't expose a standard `/models` endpoint. wuAPI supports these via:
-
-1. Set API type to **Custom**, enter the base URL and API key
-2. Click **Fetch Models** — auto-detection tries multiple protocols and paths as fallback
-3. If the model list API is unavailable, go to **API Management** → **Add Model** to manually enter model names
-4. Built-in model catalog (`models.json`) auto-displays release date, capabilities, context length for any model name
+| Type | Auth method | Notes |
+|---|---|---|
+| OpenAI | Bearer token | Standard OpenAI-compatible flow |
+| Anthropic | `x-api-key` | Claude protocol adaptation |
+| Google Gemini | Query parameter | Gemini adaptation |
+| Azure OpenAI | `api-key` header | Deployment-based routing |
+| Custom | Bearer token | OpenAI-compatible relay or third-party endpoint |
 
 ---
 
-## 🛡️ Fault Tolerance
+## Fault Tolerance
 
-- **Model Cooldown** — Any upstream failure triggers 300s cooldown; cooled models are skipped in routing
-- **Auto Recovery** — Successful request automatically clears cooldown state
-- **Auto Disable** — Auto-disable entries on 401/403/410 status codes (configurable in Settings)
-- **Failover** — Automatically try the next available channel; returns 502 if all fail
-- **User Controls Are Sacred** — `enabled` toggle is only controlled by the user; the system never auto-enables
+- Upstream failures trigger cooldown and temporary routing exclusion.
+- Successful requests clear cooldown automatically.
+- `enabled` stays user-controlled; the system does not silently re-enable disabled entries.
+- The default cooldown recovery time is `300` seconds and can be adjusted in **Settings -> Circuit Breaker**.
 
 ---
 
-## 📖 User Guide
+## Build Output
+
+```text
+wuAPI.exe               # Main executable
+api-switch.db           # Local database created at runtime
+release\wuAPI_<version>_<timestamp>.exe
+```
+
+The runtime executable built by Tauri is:
+
+```text
+src-tauri\target\release\wuAPI.exe
+```
+
+`api-switch.exe` in the same release directory is a legacy leftover and is not the current release target.
+
+---
+
+## Development Workspace
+
+The maintained Git workspace is:
+
+```text
+E:\SoftWare\Project\wuAPI-worktree
+```
+
+Related directories:
+
+- `E:\SoftWare\Project\wuAPI-worktree`: active development and release workspace
+- `E:\SoftWare\Project\wuAPI`: historical local source reference
+- `E:\SoftWare\Project\API-Switch`: upstream/reference repository source
+
+### Local Build Commands
+
+```powershell
+corepack pnpm typecheck
+corepack pnpm build:renderer
+corepack pnpm build
+.\build.ps1
+```
+
+`.\build.ps1` runs the versioned local release flow and copies a timestamped executable into `release/`.
+
+Detailed development and release notes live in [docs/DEVELOPMENT_RELEASE.md](docs/DEVELOPMENT_RELEASE.md).
+
+---
+
+## Guides
 
 - [English Guide](GUIDE.md)
 - [中文指南](GUIDE_CN.md)
 
 ---
 
-## ⚙️ Configuration
-
-Proxy listens on port `9090` by default, configurable in **Settings → Proxy**.
-
-Cooldown recovery time defaults to 600s (adjustable via slider in **Settings → Circuit Breaker**, range 300-1800s).
-
----
-
-## 🏗️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Desktop | Tauri v2 (Rust + Web) |
-| Backend | Rust + Axum + SQLite (WAL mode) |
-| Frontend | React 19 + TypeScript + Tailwind CSS v4 |
-| Protocol Adapters | 5 independent adapter modules, isolated from each other |
-
----
-
-## 📁 File Structure
-
-```
-wuAPI.exe               # Main program (portable)
-api-switch.db           # Database (auto-created on first run)
-```
-
-All data is stored alongside the executable. Delete both files to completely remove.
-
----
-
-## 📜 License
+## License
 
 [MIT License](LICENSE)
-
----
-
-## ⭐ Star
-
-If you find it useful, consider giving it a Star on [GitHub](https://github.com/NerdWu/wuAPI)!

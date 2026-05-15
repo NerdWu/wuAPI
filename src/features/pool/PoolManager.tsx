@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { GripVertical, Plus, MessageSquare, RefreshCw, XCircle, X, Trash2, Check, ChevronsUpDown, Tag } from "lucide-react";
+import { GripVertical, Plus, MessageSquare, RefreshCw, XCircle, X, Trash2, Check, ChevronsUpDown, Tag, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -25,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useApiAdapter } from "@/lib/useApiAdapter";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { useEvent } from "@/lib/events";
-import { type ApiEntry, type Channel, type PaginatedResult } from "@/types";
+import { DEFAULT_SETTINGS, type ApiEntry, type Channel, type PaginatedResult } from "@/types";
 import { cn, formatResponseMs, parseResponseMs } from "@/lib/utils";
 import { TestChatDialog } from "@/components/proxy/TestChatDialog";
 import { getCatalogModel, getCatalogModelExact, getCatalogProviderLogo, formatTokenCount } from "@/lib/modelsCatalog";
@@ -40,12 +40,36 @@ import {
 } from "@dnd-kit/core";
 import {
   arrayMove,
+  horizontalListSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+const GROUP_ORDER_STORAGE_KEY = "wuapi-pool-group-order";
+
+function normalizeGroupName(group: string | null | undefined) {
+  const trimmed = group?.trim();
+  return trimmed ? trimmed : "auto";
+}
+
+function sortGroups(groups: string[], savedOrder: string[] = []) {
+  const orderMap = new Map(savedOrder.map((group, index) => [group, index]));
+  return [...new Set(groups.map((group) => normalizeGroupName(group)))]
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a === "auto" && b !== "auto") return -1;
+      if (b === "auto" && a !== "auto") return 1;
+      const aIndex = orderMap.get(a);
+      const bIndex = orderMap.get(b);
+      if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex;
+      if (aIndex !== undefined) return -1;
+      if (bIndex !== undefined) return 1;
+      return a.localeCompare(b);
+    });
+}
 
 function StatusDot({ state }: { state: string }) {
   return (
@@ -445,31 +469,49 @@ function PoolEntryCard(props: {
   );
 }
 
-function AddApiDialog({ open, onOpenChange, channels, channelsLoading, adapter }: {
+function AddApiDialog({ open, onOpenChange, channels, channelsLoading, adapter, groups, defaultGroup }: {
 open: boolean;
 onOpenChange: (value: boolean) => void;
 channels: Channel[];
 channelsLoading: boolean;
 adapter: ReturnType<typeof useApiAdapter>;
+groups: string[];
+defaultGroup: string;
 }) {
 const { t } = useTranslation();
 const queryClient = useQueryClient();
 const [channelId, setChannelId] = useState("");
 const [modelName, setModelName] = useState("");
 const [displayName, setDisplayName] = useState("");
+const [groupName, setGroupName] = useState("auto");
 const channelOptions = channels.filter((c) => c.enabled);
 
   const createMutation = useMutation({
-    mutationFn: () => adapter.pool.create({ channelId, model: modelName, displayName: displayName || undefined, groupName: "auto" }),
+    mutationFn: () => adapter.pool.create({
+      channelId,
+      model: modelName,
+      displayName: displayName || undefined,
+      groupName: normalizeGroupName(groupName),
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
       onOpenChange(false);
       setChannelId("");
       setModelName("");
       setDisplayName("");
+      setGroupName("auto");
     },
     onError: (err) => toast.error(`${t("apiPool.addApi")} ${t("common.failed")}: ${err}`),
   });
+
+  useEffect(() => {
+    if (open) {
+      setGroupName(normalizeGroupName(defaultGroup));
+      return;
+    }
+    setGroupName("auto");
+  }, [defaultGroup, open]);
 
   return (
     <Dialog open={open} onOpenChange={(value) => {
@@ -477,6 +519,7 @@ const channelOptions = channels.filter((c) => c.enabled);
         setChannelId("");
         setModelName("");
         setDisplayName("");
+        setGroupName("auto");
       }
       onOpenChange(value);
     }}>
@@ -510,6 +553,21 @@ channelOptions.map((channel) => <SelectItem key={channel.id} value={channel.id}>
             <div className="text-sm font-medium">{t("apiPool.displayName")}</div>
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={t("apiPool.displayNamePlaceholder")} />
           </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium">{t("apiPool.groupLabel")}</div>
+            <Select value={normalizeGroupName(groupName)} onValueChange={setGroupName}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortGroups(groups).map((group) => (
+                  <SelectItem key={group} value={group}>
+                    {group}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
@@ -535,6 +593,8 @@ export function PoolManager() {
   const [testProgress, setTestProgress] = useState<{ current: number; total: number } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiEntry | null>(null);
   const [groupFilter, setGroupFilter] = useState<string>("auto");
+  const [localGroupOrder, setLocalGroupOrder] = useState<string[]>([]);
+  const [groupOrderInitialized, setGroupOrderInitialized] = useState(false);
 
   // 搜索输入 300ms 防抖，避免每次按键都触发后端请求
   useEffect(() => {
@@ -574,14 +634,45 @@ export function PoolManager() {
     queryFn: () => adapter.pool.getGroups() as Promise<string[]>,
     staleTime: 2000,
   });
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(GROUP_ORDER_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setLocalGroupOrder(parsed.map((item) => normalizeGroupName(String(item))));
+      }
+    } catch {
+      setLocalGroupOrder([]);
+    }
+  }, []);
   const groups = useMemo(() => {
-    const vals = groupList ?? [];
-    return [...new Set(["auto", ...vals])].filter(Boolean).sort((a, b) => {
-      if (a === "auto") return -1;
-      if (b === "auto") return 1;
-      return a.localeCompare(b);
-    });
-  }, [groupList]);
+    const vals = [...new Set(["auto", ...(groupList ?? []).map((group) => normalizeGroupName(group))])];
+    return sortGroups(vals, localGroupOrder);
+  }, [groupList, localGroupOrder]);
+
+  useEffect(() => {
+    localStorage.setItem(GROUP_ORDER_STORAGE_KEY, JSON.stringify(groups));
+  }, [groups]);
+
+  useEffect(() => {
+    if (groupOrderInitialized) return;
+    const remembered = localStorage.getItem("wuapi-default-group");
+    const fallback = normalizeGroupName(
+      remembered || DEFAULT_SETTINGS.active_group
+    );
+    setGroupFilter(fallback);
+    setGroupOrderInitialized(true);
+  }, [groupOrderInitialized]);
+
+  useEffect(() => {
+    if (!groupOrderInitialized) return;
+    if (groups.length === 0) return;
+    if (!groups.includes(groupFilter)) {
+      const nextGroup = groups[0] || "auto";
+      setGroupFilter(nextGroup);
+    }
+  }, [groupFilter, groupOrderInitialized, groups]);
 
   // 所有已加载的 entries 拍平
   const entries = useMemo(() => entriesPages?.pages.flatMap((p) => p.items) ?? [], [entriesPages]);
@@ -603,6 +694,11 @@ export function PoolManager() {
   useEffect(() => {
     setLocalOrder(null);
   }, [groupFilter, debouncedFilter, filterChannel]);
+
+  useEffect(() => {
+    if (!groupOrderInitialized) return;
+    localStorage.setItem("wuapi-default-group", normalizeGroupName(groupFilter));
+  }, [groupFilter, groupOrderInitialized]);
 
    // Desktop-only: Real-time tray reprioritisation via Tauri event.
    // This hook is a no-op on web builds (useTauriEvent returns false).
@@ -687,6 +783,21 @@ export function PoolManager() {
   const handleGroupChange = useCallback((entry: ApiEntry, group: string) => {
     updateGroupMutation.mutate({ id: entry.id, groupName: group.trim() || "auto" });
   }, [updateGroupMutation]);
+
+  const groupSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleGroupDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = groups.findIndex((group) => group === active.id);
+    const newIndex = groups.findIndex((group) => group === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const nextOrder = arrayMove(groups, oldIndex, newIndex);
+    setLocalGroupOrder(nextOrder);
+  }, [groups]);
 
 const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean, options: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => {
       const hotKey = options.ctrlKey || options.metaKey;
@@ -814,6 +925,10 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
             <RefreshCw className={cn("h-4 w-4", testProgress && "animate-spin")} />
             {testProgress ? `${testProgress.current}/${testProgress.total}` : t("apiPool.testAllLatency")}
           </Button>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <FolderPlus className="h-3.5 w-3.5" />
+            <span>{t("settings.general.defaultGroup")}: {normalizeGroupName(groupFilter)}</span>
+          </div>
           <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)}>
             <Plus className="h-4 w-4" />
             {t("apiPool.addModel")}
@@ -828,20 +943,20 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
       </div>
       {groups.length > 0 ? (
         <div className="mt-2 -mx-px w-[calc(100%+2px)] rounded-t-md border border-b-0 bg-background">
-          <div className="flex w-full items-center px-0 py-0">
-            {groups.map((group, index) => (
-              <button
-                key={group}
-                type="button"
-                className={`h-6 flex-1 px-3 text-xs border-b-2 transition-colors ${groupFilter === group ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                onClick={() => {
-                  setGroupFilter(group);
-                }}
-              >
-                {group}
-              </button>
-            ))}
-          </div>
+          <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+            <SortableContext items={groups} strategy={horizontalListSortingStrategy}>
+              <div className="flex w-full items-center gap-1 overflow-x-auto px-1 py-1">
+                {groups.map((group) => (
+                  <SortableGroupTab
+                    key={group}
+                    group={group}
+                    selected={groupFilter === group}
+                    onSelect={() => setGroupFilter(group)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       ) : null}
       <Card className="rounded-t-none">
@@ -882,7 +997,15 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
           )}
         </CardContent>
       </Card>
-      <AddApiDialog open={showAdd} onOpenChange={setShowAdd} channels={channels || []} channelsLoading={channelsLoading} adapter={adapter} />
+      <AddApiDialog
+        open={showAdd}
+        onOpenChange={setShowAdd}
+        channels={channels || []}
+        channelsLoading={channelsLoading}
+        adapter={adapter}
+        groups={groups}
+        defaultGroup={groupFilter}
+      />
       <TestChatDialog open={!!testEntry} onOpenChange={(v) => !v && setTestEntry(null)} entry={testEntry} />
       <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <DialogContent>
@@ -895,5 +1018,40 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function SortableGroupTab({
+  group,
+  selected,
+  onSelect,
+}: {
+  group: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : undefined,
+  };
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      style={style}
+      className={cn(
+        "flex h-7 shrink-0 items-center gap-1 rounded-md border border-transparent px-3 text-xs transition-colors",
+        selected ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+      )}
+      onClick={onSelect}
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-3 w-3 shrink-0" />
+      <span className="truncate">{group}</span>
+    </button>
   );
 }

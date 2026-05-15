@@ -36,7 +36,6 @@ REFACTOR_PLAN.md
 BUG.MD
 log.md
 pool-for-group-test.md
-docs/
 src-tauri/src/services/learnings_translation.md
 
 # Rust / Tauri
@@ -66,7 +65,7 @@ key.txt
 src-tauri/icons/Square48x48Logo.png
 
 # Local build helper
-build.ps1
+build.local.ps1
 
 
 # Reference docs

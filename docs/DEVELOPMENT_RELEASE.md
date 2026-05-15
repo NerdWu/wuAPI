@@ -1,19 +1,24 @@
-# wuAPI Development and Release Notes
+# wuAPI 开发与发布说明
 
-## Standard Workspace
+## 标准工作目录
 
-- Active development workspace: `E:\SoftWare\Project\wuAPI-worktree`
-- `origin`: `https://github.com/NerdWu/wuAPI`
-- `upstream`: `https://github.com/wang1970/API-Switch`
-- Historical reference only: `E:\SoftWare\Project\wuAPI`
+- 当前标准开发目录：`E:\SoftWare\Project\wuAPI-worktree`
+- `origin`：`https://github.com/NerdWu/wuAPI`
+- `upstream`：`https://github.com/wang1970/API-Switch`
+- 历史参考目录：`E:\SoftWare\Project\wuAPI`
 
-Do not continue feature work in `E:\SoftWare\Project\API-Switch` or the old `wuAPI` directory.
+不要继续在 `E:\SoftWare\Project\API-Switch` 或旧 `wuAPI` 目录里直接做功能开发。
 
-## Daily Development Flow
+## 日常开发流程
 
-1. Run `git status --short --branch` in `wuAPI-worktree` before editing.
-2. Keep user-facing behavior changes in `src/` and Rust proxy/database changes in `src-tauri/src/`.
-3. Verify with:
+1. 开始编辑前先执行：
+
+```powershell
+git status --short --branch
+```
+
+2. 前端用户行为改动优先落在 `src/`，Rust 代理和数据库改动优先落在 `src-tauri/src/`。
+3. 修改后至少验证：
 
 ```powershell
 corepack pnpm typecheck
@@ -21,54 +26,54 @@ corepack pnpm build:renderer
 corepack pnpm build
 ```
 
-4. Use `git push origin <branch>` only after explicit confirmation.
+4. 未经确认，不执行 `git push`。
 
-## Upstream Sync Flow
+## 同步上游流程
 
-1. Fetch upstream changes in `wuAPI-worktree`:
+1. 获取上游更新：
 
 ```powershell
 git fetch --prune upstream
 ```
 
-2. Audit upstream diffs before merging or porting behavior.
-3. Port only confirmed changes that affect wuAPI's actual product surface:
-   - proxy behavior
-   - protocol compatibility
-   - pool/group routing
-   - settings and user workflows
+2. 先审计差异，再决定是否迁移。
+3. 只迁移会影响 `wuAPI` 实际产品面的内容：
+   - 代理行为
+   - 协议兼容
+   - API 池 / 分组路由
+   - 设置与用户工作流
 
-Do not copy build artifacts, logs, databases, or obsolete architecture from older local directories.
+不要把旧目录中的构建产物、日志、数据库文件或过时架构直接拷贝进来。
 
-## Local Release Build
+## 本地发布构建
 
-Primary command:
+推荐命令：
 
 ```powershell
 .\build.ps1
 ```
 
-Equivalent manual flow:
+等价手动流程：
 
 ```powershell
 corepack pnpm build:versioned
 ```
 
-This produces:
+构建结果：
 
-- runtime executable: `src-tauri\target\release\wuAPI.exe`
-- versioned copy for handoff: `release\wuAPI_<version>_<timestamp>.exe`
+- 运行文件：`src-tauri\target\release\wuAPI.exe`
+- 版本化发布副本：`release\wuAPI_<version>_<timestamp>.exe`
 
-`api-switch.exe` under `src-tauri\target\release\` is a legacy leftover and is not the release target.
+`src-tauri\target\release\api-switch.exe` 属于历史残留，不作为当前发布目标。
 
-## Release Checklist
+## 发布前检查
 
-1. `git status` is clean or only contains intentionally tracked release-related edits.
-2. Version is aligned across:
+1. `git status` 干净，或只包含明确要发布的跟踪改动。
+2. 版本号保持一致：
    - `package.json`
    - `src-tauri/tauri.conf.json`
    - `src-tauri/Cargo.toml`
-3. `corepack pnpm typecheck` passes.
-4. `corepack pnpm build` passes.
-5. Verify the executable name is `wuAPI.exe`.
-6. Smoke-test the built app with the current settings and API pool data.
+3. `corepack pnpm typecheck` 通过。
+4. `corepack pnpm build` 通过。
+5. 确认最终运行文件名是 `wuAPI.exe`。
+6. 用当前本地设置和 API 池数据做一次基本冒烟验证。

@@ -13,6 +13,7 @@ pub struct LoginFailureState {
 #[derive(Clone)]
 pub struct SessionInfo {
     pub username: String,
+    #[allow(dead_code)]
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 

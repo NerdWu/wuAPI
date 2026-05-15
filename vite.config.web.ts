@@ -20,6 +20,9 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "dist-web-admin"),
     emptyOutDir: true,
     assetsDir: "assets",
+    // `models.json` is intentionally bundled as a standalone local catalog chunk.
+    // Raise the warning threshold so routine personal builds stay clean.
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       input: path.resolve(__dirname, "src/index.html"),
       output: {

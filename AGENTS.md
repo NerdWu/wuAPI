@@ -52,7 +52,7 @@
 - `src/pages/`：页面级视图
 - `src/components/`：可复用组件，`src/components/ui/` 为基础 UI 组件
 - `src/lib/`：前端工具、模型目录、API 封装、事件桥接
-- `src/i18n/`：国际化资源
+- `src/i18n/`：现有界面文案资源；当前项目默认以中文主线维护
 - `src-tauri/src/`：Tauri/Rust 后端代码
 - `src-tauri/src/commands/`：暴露给前端的 Tauri commands
 - `src-tauri/src/database/`：数据库连接、schema、DAO
@@ -138,7 +138,7 @@ corepack pnpm dev
 
 ## 文档规则
 
-- 面向用户的文档默认中英文都应可读
+- 面向用户的文档默认以中文为主，英文内容不再作为主维护目标
 - README、GUIDE、CHANGELOG 只写对使用者和维护者有价值的信息
 - `AGENTS.md` 只写长期规则，不写历史叙事
 - 涉及开发流程、同步流程、发布流程的稳定说明写入 `docs/`

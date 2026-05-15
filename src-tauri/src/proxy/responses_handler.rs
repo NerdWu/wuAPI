@@ -9,8 +9,7 @@ use super::auth;
 use super::forwarder;
 use super::handlers::ProxyError;
 use super::protocol::responses::{
-    build_responses_base_response, build_responses_sse_http_response, input_to_messages,
-    responses_failed_response, responses_sse_done, responses_sse_line,
+    build_responses_base_response, build_responses_sse_http_response, responses_failed_response, responses_sse_done, responses_sse_line,
     responses_to_openai_chat_request, transform_openai_sse_to_responses_stream,
     wrap_openai_response_as_responses,
 };

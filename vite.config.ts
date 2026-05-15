@@ -13,6 +13,11 @@ export default defineConfig(async () => ({
     },
   },
   clearScreen: false,
+  build: {
+    // `models.json` is intentionally shipped as a large local catalog chunk for
+    // personal/offline usage. Keep the warning threshold aligned with that design.
+    chunkSizeWarningLimit: 2000,
+  },
   server: {
     port: 1420,
     strictPort: true,

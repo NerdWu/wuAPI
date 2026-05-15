@@ -46,6 +46,7 @@ pub enum CallerKind {
 /// 请求上下文，传递给中间件
 #[derive(Clone)]
 pub struct RequestContext {
+    #[allow(dead_code)]
     pub caller_kind: CallerKind,
     #[allow(dead_code)]
     pub requested_model: Arc<str>,

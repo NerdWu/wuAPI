@@ -19,7 +19,6 @@ mod roundtrip_tests;
 pub use azure::azure_to_openai_request;
 pub use claude::{
     claude_to_openai_request, openai_to_claude_response, transform_openai_sse_to_claude_stream,
-    ClaudeSSETransformer,
 };
 pub use common::join_url;
 pub use gemini::{

@@ -145,7 +145,7 @@ impl Database {
         let conn = lock_conn!(self.conn);
 
         let page = filter.page.unwrap_or(1).max(1);
-        let page_size = filter.page_size.unwrap_or(50).max(1).min(200);
+        let page_size = filter.page_size.unwrap_or(50).max(1).min(10000);
 
         let mut where_clauses = Vec::new();
         let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();

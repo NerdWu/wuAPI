@@ -30,7 +30,6 @@ export function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       queryClient.invalidateQueries({ queryKey: ["pool-groups"] });
-      queryClient.invalidateQueries({ queryKey: ["adminStatus"] });
     },
     onError: (err) => {
       toast.error(`设置保存失败: ${err}`, { duration: Infinity });
@@ -59,7 +58,6 @@ export function SettingsPage() {
         await adapter.proxy.stop();
       }
         queryClient.invalidateQueries({ queryKey: ["proxyStatus"] });
-        queryClient.invalidateQueries({ queryKey: ["adminStatus"] });
         queryClient.invalidateQueries({ queryKey: ["settings"] });
       } catch (err) {
       const action = enabled ? t("settings.proxy.start") : t("settings.proxy.stop");

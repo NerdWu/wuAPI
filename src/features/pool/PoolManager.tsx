@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, type MouseEvent } from "react";
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { GripVertical, Plus, MessageSquare, RefreshCw, XCircle, X, Trash2, Check, ChevronsUpDown, Tag, FolderPlus } from "lucide-react";
@@ -219,7 +219,7 @@ function ModelMetaBlock({ metaZh, metaEn, releaseDate, context, output, features
 }) {
   const { t, i18n } = useTranslation();
   const storedMeta = i18n.language?.startsWith("zh") ? metaZh : metaEn;
-  if (storedMeta) return <div className="mt-1 text-xs text-muted-foreground truncate">{storedMeta}</div>;
+  if (storedMeta) return <div className="mt-1 text-xs leading-5 text-muted-foreground break-words">{storedMeta}</div>;
   if (!releaseDate && features.length === 0 && !context && !output) return null;
   const segments = [
     releaseDate ? `${t("apiPool.modelMeta.releaseDate")}: ${releaseDate}` : null,
@@ -228,7 +228,7 @@ function ModelMetaBlock({ metaZh, metaEn, releaseDate, context, output, features
     output ? `${t("apiPool.modelMeta.output")}: ${output}` : null,
   ].filter(Boolean) as string[];
   if (segments.length === 0) return null;
-  return <div className="mt-1 text-xs text-muted-foreground truncate">{segments.join(" / ")}</div>;
+  return <div className="mt-1 text-xs leading-5 text-muted-foreground break-words">{segments.join(" / ")}</div>;
 }
 
 function getEntryStatus(entry: ApiEntry) {
@@ -358,21 +358,33 @@ function CardBody({
   modelMetaEn?: string;
 }) {
   const { t } = useTranslation();
+  const [groupMenu, setGroupMenu] = useState<{ x: number; y: number } | null>(null);
   const cooldownRemaining = formatCooldownRemaining(entry.cooldown_until);
-  const responseNode = testingEntryIds?.has(entry.id) ? (
-    <RefreshCw className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" />
-  ) : testResult === "X" ? (
-    <XCircle className="h-3 w-3 shrink-0 text-red-500" />
+
+  const groupOptions = useMemo(() => {
+    const merged = new Set(["auto", ...(groups ?? []), entry.group_name || "auto"]);
+    return Array.from(merged).map((group) => normalizeGroupName(group));
+  }, [entry.group_name, groups]);
+  const speedNode = testingEntryIds?.has(entry.id) ? (
+    <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+  ) : testResult === "X" || entry.response_ms === "X" ? (
+    <XCircle className="h-3 w-3 text-red-500" />
   ) : testResult ? (
-    <span className="text-xs text-green-600 shrink-0">({formatResponseMs(testResult)})</span>
-  ) : entry.response_ms === "X" ? (
-    <XCircle className="h-3 w-3 shrink-0 text-red-500" />
+    <span className="text-green-600">{formatResponseMs(testResult)}</span>
   ) : entry.response_ms ? (
-    <span className="text-xs text-green-600 shrink-0">({formatResponseMs(entry.response_ms)})</span>
+    <span className="text-green-600">{formatResponseMs(entry.response_ms)}</span>
   ) : null;
 
   return (
-    <>
+    <div
+      className="flex min-w-0 flex-1 items-start gap-3"
+      onContextMenu={(event) => {
+        if (!onGroupChange || !groups?.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setGroupMenu({ x: event.clientX, y: event.clientY });
+      }}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/40">
         <img
           src={catalogLogo}
@@ -394,7 +406,6 @@ function CardBody({
             </div>
             <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
               <span className="truncate">{entry.channel_name || "—"}</span>
-              {responseNode}
             </div>
             {entry.display_name && entry.display_name !== entry.model ? (
               <div className="truncate text-[11px] text-muted-foreground">
@@ -403,9 +414,6 @@ function CardBody({
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {groups && onGroupChange ? (
-              <GroupSelector value={entry.group_name || "auto"} groups={groups} onChange={(group) => onGroupChange(entry, group)} />
-            ) : null}
             <Button variant="ghost" size="icon" className="h-7 w-7 touch-none text-muted-foreground hover:text-foreground" onClick={() => onTest(entry)}>
               <MessageSquare className="h-3.5 w-3.5" />
             </Button>
@@ -441,26 +449,65 @@ function CardBody({
           />
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-1">
-          <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] leading-4 text-secondary-foreground">
-            {entry.group_name || "auto"}
-          </span>
-          <span
-            className={cn(
-              "rounded-full px-1.5 py-0.5 text-[11px] leading-4",
-              entry.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
-            )}
-          >
-            {entry.enabled ? t("apiPool.enabled") : t("apiPool.disabled")}
-          </span>
-          {catalogReleaseDate ? (
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-4 text-muted-foreground">
-              {catalogReleaseDate}
+        <div className="mt-2 flex flex-wrap items-end gap-1">
+            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] leading-4 text-secondary-foreground">
+              {entry.group_name || "auto"}
             </span>
-          ) : null}
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[11px] leading-4",
+                entry.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
+              )}
+            >
+              {entry.enabled ? t("apiPool.enabled") : t("apiPool.disabled")}
+            </span>
+            {catalogReleaseDate ? (
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-4 text-muted-foreground">
+                {catalogReleaseDate}
+              </span>
+            ) : null}
+            {speedNode ? (
+              <span className="ml-auto flex min-h-4 items-center justify-end pl-2 text-xs leading-none">
+                {speedNode}
+              </span>
+            ) : null}
         </div>
       </div>
-    </>
+      {groupMenu && onGroupChange ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setGroupMenu(null)}
+            aria-label="关闭分组菜单"
+          />
+          <div
+            className="fixed z-50 min-w-36 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            style={{ left: groupMenu.x, top: groupMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">切换分组</div>
+            {groupOptions.map((group) => (
+              <button
+                key={group}
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent",
+                  normalizeGroupName(entry.group_name) === group && "bg-accent text-accent-foreground"
+                )}
+                onClick={() => {
+                  onGroupChange(entry, group);
+                  setGroupMenu(null);
+                }}
+              >
+                <Check className={cn("h-3 w-3", normalizeGroupName(entry.group_name) === group ? "opacity-100" : "opacity-0")} />
+                <span className="truncate">{group}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 function SortablePoolEntryCard(props: {
@@ -489,8 +536,8 @@ function SortablePoolEntryCard(props: {
   };
 
   return (
-    <Card ref={setNodeRef} style={style} className={cn("h-full min-h-[138px] border shadow-sm transition-opacity", !props.entry.enabled && "opacity-60")}>
-      <CardContent className="flex h-full items-start gap-3 p-3">
+    <Card ref={setNodeRef} style={style} className={cn("h-full border shadow-sm transition-opacity", !props.entry.enabled && "opacity-60")}>
+      <CardContent className="flex h-full items-start gap-2 p-3">
         <div {...attributes} {...listeners} className="cursor-pointer pt-0.5 text-muted-foreground hover:text-foreground">
           <GripVertical className="h-3.5 w-3.5 shrink-0" />
         </div>
@@ -518,8 +565,8 @@ function PoolEntryCard(props: {
   modelMetaEn?: string;
 }) {
   return (
-    <Card className={cn("h-full min-h-[138px] border shadow-sm transition-opacity", !props.entry.enabled && "opacity-60")}>
-      <CardContent className="flex h-full items-start gap-3 p-3">
+    <Card className={cn("h-full border shadow-sm transition-opacity", !props.entry.enabled && "opacity-60")}>
+      <CardContent className="flex h-full items-start p-3">
         <CardBody {...props} />
       </CardContent>
     </Card>
@@ -640,7 +687,6 @@ export function PoolManager() {
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [filterText, setFilterText] = useState("");
   const [debouncedFilter, setDebouncedFilter] = useState("");
-  const [filterChannel, setFilterChannel] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
   const [testEntry, setTestEntry] = useState<ApiEntry | null>(null);
   const [testingEntryIds, setTestingEntryIds] = useState<Set<string>>(new Set());
@@ -650,6 +696,15 @@ export function PoolManager() {
   const [groupFilter, setGroupFilter] = useState<string>("auto");
   const [localGroupOrder, setLocalGroupOrder] = useState<string[]>([]);
   const [groupOrderInitialized, setGroupOrderInitialized] = useState(false);
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [groupMenu, setGroupMenu] = useState<{ group: string; x: number; y: number } | null>(null);
+  const [renameGroupTarget, setRenameGroupTarget] = useState<string | null>(null);
+  const [renameGroupName, setRenameGroupName] = useState("");
+  const [deleteGroupTarget, setDeleteGroupTarget] = useState<string | null>(null);
+  const [migrateGroupTarget, setMigrateGroupTarget] = useState<string | null>(null);
+  const [migrateGroupName, setMigrateGroupName] = useState("");
+  const [migrateGroupOpen, setMigrateGroupOpen] = useState(false);
 
   // 搜索输入 300ms 防抖，避免每次按键都触发后端请求
   useEffect(() => {
@@ -665,13 +720,12 @@ export function PoolManager() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["entries", "paginated", groupFilter, filterChannel, debouncedFilter],
+    queryKey: ["entries", "paginated", groupFilter, debouncedFilter],
     queryFn: ({ pageParam = 1 }) =>
       adapter.pool.listPaginated({
         page: pageParam,
         pageSize: 20,
         groupName: groupFilter !== "all" ? groupFilter : undefined,
-        channelId: filterChannel !== "all" ? filterChannel : undefined,
         search: debouncedFilter.trim() || undefined,
       }) as Promise<PaginatedResult<ApiEntry>>,
     placeholderData: (previousData) => previousData,
@@ -702,7 +756,11 @@ export function PoolManager() {
     }
   }, []);
   const groups = useMemo(() => {
-    const vals = [...new Set(["auto", ...(groupList ?? []).map((group) => normalizeGroupName(group))])];
+    const vals = [...new Set([
+      "auto",
+      ...localGroupOrder.map((group) => normalizeGroupName(group)),
+      ...(groupList ?? []).map((group) => normalizeGroupName(group)),
+    ])];
     return sortGroups(vals, localGroupOrder);
   }, [groupList, localGroupOrder]);
 
@@ -748,7 +806,7 @@ export function PoolManager() {
   // 过滤条件变化时清除本地排序
   useEffect(() => {
     setLocalOrder(null);
-  }, [groupFilter, debouncedFilter, filterChannel]);
+  }, [groupFilter, debouncedFilter]);
 
   useEffect(() => {
     if (!groupOrderInitialized) return;
@@ -839,6 +897,89 @@ export function PoolManager() {
     updateGroupMutation.mutate({ id: entry.id, groupName: group.trim() || "auto" });
   }, [updateGroupMutation]);
 
+  const moveWholeGroup = useCallback(async (fromGroup: string, toGroup: string) => {
+    const from = normalizeGroupName(fromGroup);
+    const to = normalizeGroupName(toGroup);
+    const page = await adapter.pool.listPaginated({
+      page: 1,
+      pageSize: 10000,
+      groupName: from,
+    });
+    await Promise.all(page.items.map((entry) => adapter.pool.updateGroup(entry.id, to)));
+  }, [adapter.pool]);
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (group: string) => {
+      const target = normalizeGroupName(group);
+      if (target === "auto") return;
+      if ((groupList ?? []).includes(target)) {
+        await moveWholeGroup(target, "auto");
+      }
+      return target;
+    },
+    onSuccess: (_unused, group) => {
+      const target = normalizeGroupName(group);
+      const nextOrder = groups.filter((item) => item !== target);
+      setLocalGroupOrder(nextOrder);
+      localStorage.setItem(GROUP_ORDER_STORAGE_KEY, JSON.stringify(nextOrder));
+      if (groupFilter === target) setGroupFilter("auto");
+      setGroupMenu(null);
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+    },
+    onError: (err) => toast.error(`删除分组失败: ${err}`),
+  });
+
+  const renameGroupMutation = useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }) => {
+      const source = normalizeGroupName(from);
+      const target = normalizeGroupName(to);
+      if (!target || source === "auto" || source === target) return { source, target };
+      if ((groupList ?? []).includes(source)) {
+        await moveWholeGroup(source, target);
+      }
+      return { source, target };
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      const { source, target } = result;
+      const nextOrder = sortGroups(groups.map((group) => group === source ? target : group), localGroupOrder.map((group) => group === source ? target : group));
+      setLocalGroupOrder(nextOrder);
+      localStorage.setItem(GROUP_ORDER_STORAGE_KEY, JSON.stringify(nextOrder));
+      if (groupFilter === source) setGroupFilter(target);
+      setRenameGroupTarget(null);
+      setRenameGroupName("");
+      setGroupMenu(null);
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+    },
+    onError: (err) => toast.error(`重命名分组失败: ${err}`),
+  });
+
+  const migrateGroupMutation = useMutation({
+    mutationFn: async ({ from, to }: { from: string; to: string }) => {
+      const source = normalizeGroupName(from);
+      const target = normalizeGroupName(to);
+      if (!target || source === target) return { source, target };
+      await moveWholeGroup(source, target);
+      return { source, target };
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      const { target } = result;
+      const nextOrder = sortGroups([...groups, target], [...localGroupOrder, target]);
+      setLocalGroupOrder(nextOrder);
+      localStorage.setItem(GROUP_ORDER_STORAGE_KEY, JSON.stringify(nextOrder));
+      setGroupFilter(target);
+      setMigrateGroupTarget(null);
+      setMigrateGroupName("");
+      setGroupMenu(null);
+      queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+    },
+    onError: (err) => toast.error(`迁移分组失败: ${err}`),
+  });
+
   const groupSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -853,6 +994,23 @@ export function PoolManager() {
     const nextOrder = arrayMove(groups, oldIndex, newIndex);
     setLocalGroupOrder(nextOrder);
   }, [groups]);
+
+  const createLocalGroup = useCallback(() => {
+    const nextGroup = normalizeGroupName(newGroupName);
+    if (!nextGroup || groups.includes(nextGroup)) {
+      setGroupFilter(nextGroup || "auto");
+      setShowGroupDialog(false);
+      setNewGroupName("");
+      return;
+    }
+    const nextOrder = [...groups, nextGroup];
+    setLocalGroupOrder(nextOrder);
+    setGroupFilter(nextGroup);
+    localStorage.setItem(GROUP_ORDER_STORAGE_KEY, JSON.stringify(nextOrder));
+    localStorage.setItem("wuapi-default-group", nextGroup);
+    setShowGroupDialog(false);
+    setNewGroupName("");
+  }, [groups, newGroupName]);
 
 const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean, options: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => {
       const hotKey = options.ctrlKey || options.metaKey;
@@ -970,41 +1128,36 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">{t("apiPool.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("apiPool.description")}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button size="sm" variant="outline" className="gap-1.5 min-w-[140px]" onClick={testAllEntries} disabled={!!testProgress}>
-            <RefreshCw className={cn("h-4 w-4", testProgress && "animate-spin")} />
-            {testProgress ? `${testProgress.current}/${testProgress.total}` : t("apiPool.testAllLatency")}
-          </Button>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <FolderPlus className="h-3.5 w-3.5" />
-            <span>{t("settings.general.defaultGroup")}: {normalizeGroupName(groupFilter)}</span>
-          </div>
-          <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)}>
+        <div className="flex shrink-0 items-center gap-3">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowAdd(true)}>
             <Plus className="h-4 w-4" />
             {t("apiPool.addModel")}
           </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowGroupDialog(true)}>
+            <FolderPlus className="h-4 w-4" />
+            添加分组
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={testAllEntries} disabled={!!testProgress}>
+            <RefreshCw className={cn("h-4 w-4", testProgress && "animate-spin")} />
+            {testProgress ? `${testProgress.current}/${testProgress.total}` : t("apiPool.testAllLatency")}
+          </Button>
         </div>
       </div>
-      <div className="mt-4 rounded-md border bg-card shadow-sm">
+      <Card className="mt-4">
+        <CardContent className="p-0">
         <div className="flex flex-wrap items-center gap-3 p-3">
           <div className="relative min-w-[240px] flex-1">
             <Input className="pr-8" placeholder={t("apiPool.search")} value={filterText} onChange={(e) => setFilterText(e.target.value)} />
             {filterText ? <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setFilterText("")}><X className="h-4 w-4" /></button> : null}
           </div>
-          <ChannelFilter channels={channels || []} value={filterChannel} onChange={setFilterChannel} />
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => queryClient.invalidateQueries({ queryKey: ["entries"] })}>
-            <RefreshCw className="h-4 w-4" />
-            {t("apiPool.refreshModelList", { defaultValue: "刷新模型列表" })}
-          </Button>
         </div>
-      </div>
       {groups.length > 0 ? (
-        <div className="mt-2 -mx-px w-[calc(100%+2px)] rounded-t-md border border-b-0 bg-background">
+        <div className="border-t bg-background">
           <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
             <SortableContext items={groups} strategy={horizontalListSortingStrategy}>
               <div className="flex w-full items-center gap-1 overflow-x-auto px-1 py-1">
@@ -1014,6 +1167,11 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
                     group={group}
                     selected={groupFilter === group}
                     onSelect={() => setGroupFilter(group)}
+                    onMenu={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setGroupMenu({ group, x: event.clientX, y: event.clientY });
+                    }}
                   />
                 ))}
               </div>
@@ -1021,8 +1179,7 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
           </DndContext>
         </div>
       ) : null}
-      <Card className="rounded-t-none">
-        <CardContent className="p-4 pt-4">
+        <div className="border-t p-4">
           {!entries?.length ? (
             <div className="flex h-48 items-center justify-center text-muted-foreground">{t("apiPool.empty")}</div>
           ) : canReorder ? (
@@ -1057,6 +1214,7 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
               )}
             </div>
           )}
+        </div>
         </CardContent>
       </Card>
       <AddApiDialog
@@ -1068,6 +1226,219 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
         groups={groups}
         defaultGroup={groupFilter}
       />
+      {groupMenu ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setGroupMenu(null)}
+            aria-label="关闭分组菜单"
+          />
+          <div
+            className="fixed z-50 w-28 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            style={{ left: groupMenu.x, top: groupMenu.y }}
+          >
+            {groupMenu.group !== "auto" ? (
+              <button
+                type="button"
+                className="block w-full rounded px-2 py-1.5 text-center text-xs hover:bg-accent"
+                onClick={() => {
+                  setRenameGroupTarget(groupMenu.group);
+                  setRenameGroupName(groupMenu.group);
+                  setGroupMenu(null);
+                }}
+              >
+                重命名分组
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="block w-full rounded px-2 py-1.5 text-center text-xs hover:bg-accent"
+              onClick={() => {
+                setMigrateGroupTarget(groupMenu.group);
+                setMigrateGroupName("");
+                setGroupMenu(null);
+              }}
+            >
+              迁移本组模型
+            </button>
+            {groupMenu.group !== "auto" ? (
+            <button
+              type="button"
+              className="block w-full rounded px-2 py-1.5 text-center text-xs text-destructive hover:bg-accent"
+              onClick={() => {
+                setDeleteGroupTarget(groupMenu.group);
+                setGroupMenu(null);
+              }}
+              disabled={deleteGroupMutation.isPending}
+            >
+              删除分组
+            </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>添加分组</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">
+              新分组会显示在 API 管理页顶部。添加模型或把现有模型切到该分组后，会进入当前数据库分组。
+            </div>
+            <Input
+              autoFocus
+              value={newGroupName}
+              onChange={(event) => setNewGroupName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") createLocalGroup();
+              }}
+              placeholder="例如 coding / writing / auto"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGroupDialog(false)}>取消</Button>
+            <Button onClick={createLocalGroup} disabled={!newGroupName.trim()}>添加</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!renameGroupTarget} onOpenChange={(open) => {
+        if (!open) {
+          setRenameGroupTarget(null);
+          setRenameGroupName("");
+        }
+      }}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>重命名分组</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">
+              会把该分组下的 API 条目迁移到新分组名。空分组只更新顶部标签。
+            </div>
+            <Input
+              autoFocus
+              value={renameGroupName}
+              onChange={(event) => setRenameGroupName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && renameGroupTarget) {
+                  renameGroupMutation.mutate({ from: renameGroupTarget, to: renameGroupName });
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameGroupTarget(null)}>取消</Button>
+            <Button
+              onClick={() => renameGroupTarget && renameGroupMutation.mutate({ from: renameGroupTarget, to: renameGroupName })}
+              disabled={!renameGroupName.trim() || renameGroupMutation.isPending}
+            >
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!deleteGroupTarget} onOpenChange={(open) => {
+        if (!open) setDeleteGroupTarget(null);
+      }}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>删除分组</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            确认删除分组 “{deleteGroupTarget}” 吗？该分组下已有 API 条目会迁移到 auto 分组。
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteGroupTarget(null)}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteGroupMutation.isPending}
+              onClick={() => {
+                if (!deleteGroupTarget) return;
+                deleteGroupMutation.mutate(deleteGroupTarget, {
+                  onSuccess: () => setDeleteGroupTarget(null),
+                });
+              }}
+            >
+              删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!migrateGroupTarget} onOpenChange={(open) => {
+        if (!open) {
+          setMigrateGroupTarget(null);
+          setMigrateGroupName("");
+          setMigrateGroupOpen(false);
+        }
+      }}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>迁移本组模型</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">
+              将 “{migrateGroupTarget}” 分组下的所有模型迁移到已有分组，或输入一个新分组名。
+            </div>
+            <div className="relative w-60 max-w-full">
+              <Input
+                autoFocus
+                value={migrateGroupName}
+                onFocus={() => setMigrateGroupOpen(true)}
+                onClick={() => setMigrateGroupOpen(true)}
+                onChange={(event) => {
+                  setMigrateGroupName(event.target.value);
+                  setMigrateGroupOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setMigrateGroupOpen(false);
+                  if (event.key === "Enter" && migrateGroupTarget && migrateGroupName.trim()) {
+                    migrateGroupMutation.mutate({ from: migrateGroupTarget, to: migrateGroupName });
+                  }
+                }}
+                placeholder="选择或输入目标分组"
+                className="pr-8"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setMigrateGroupOpen((value) => !value)}
+                aria-label="选择目标分组"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+              </button>
+              {migrateGroupOpen ? (
+                <div className="absolute z-50 mt-1 max-h-40 w-full overflow-y-auto rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md">
+                  {groups.filter((group) => group !== migrateGroupTarget).map((group) => (
+                    <button
+                      key={group}
+                      type="button"
+                      className="block w-full truncate rounded px-2 py-1.5 text-left hover:bg-accent"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setMigrateGroupName(group);
+                        setMigrateGroupOpen(false);
+                      }}
+                    >
+                      {group}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMigrateGroupTarget(null)}>取消</Button>
+            <Button
+              onClick={() => migrateGroupTarget && migrateGroupMutation.mutate({ from: migrateGroupTarget, to: migrateGroupName })}
+              disabled={!migrateGroupName.trim() || normalizeGroupName(migrateGroupName) === normalizeGroupName(migrateGroupTarget) || migrateGroupMutation.isPending}
+            >
+              迁移
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <TestChatDialog open={!!testEntry} onOpenChange={(v) => !v && setTestEntry(null)} entry={testEntry} />
       <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <DialogContent>
@@ -1083,41 +1454,16 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
   );
 }
 
-function ChannelFilter({
-  channels,
-  value,
-  onChange,
-}: {
-  channels: Channel[];
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-full md:w-48">
-        <SelectValue placeholder={t("apiPool.filterChannel")} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">{t("apiPool.filterChannel")}</SelectItem>
-        {channels.map((channel) => (
-          <SelectItem key={channel.id} value={channel.id}>
-            {channel.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 function SortableGroupTab({
   group,
   selected,
   onSelect,
+  onMenu,
 }: {
   group: string;
   selected: boolean;
   onSelect: () => void;
+  onMenu: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group });
   const style = {
@@ -1136,6 +1482,7 @@ function SortableGroupTab({
         selected ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
       )}
       onClick={onSelect}
+      onContextMenu={onMenu}
       {...attributes}
       {...listeners}
     >

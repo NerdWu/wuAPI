@@ -111,7 +111,7 @@ export function TokenPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">{t("token.title")}</h1>
-        <Button size="sm" className="gap-1.5" onClick={() => setShowCreate(true)}>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
           {t("token.add")}
         </Button>

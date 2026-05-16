@@ -1,6 +1,5 @@
 import { useState, useEffect, Suspense, lazy, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { WelcomeGuide } from "@/components/WelcomeGuide";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,20 +8,24 @@ import { useApiAdapter, isTauriRuntime } from "@/lib/useApiAdapter";
 import { LoginScreen } from "@/components/LoginScreen";
 import { AUTH_EXPIRED_EVENT, clearToken, getToken, logout, validateToken, type AuthExpiredDetail, TOKEN_KEY } from "@/lib/webAuth";
 
-const ApiPoolPage = lazy(() => import("@/pages/ApiPoolPage").then((m) => ({ default: m.ApiPoolPage })));
-const ChannelPage = lazy(() => import("@/pages/ChannelPage").then((m) => ({ default: m.ChannelPage })));
-const TokenPage = lazy(() => import("@/pages/TokenPage").then((m) => ({ default: m.TokenPage })));
-const LogPage = lazy(() => import("@/pages/LogPage").then((m) => ({ default: m.LogPage })));
-const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
-const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const loadApiPoolPage = () => import("@/pages/ApiPoolPage");
+const loadChannelPage = () => import("@/pages/ChannelPage");
+const loadTokenPage = () => import("@/pages/TokenPage");
+const loadLogPage = () => import("@/pages/LogPage");
+const loadDashboardPage = () => import("@/pages/DashboardPage");
+const loadSettingsPage = () => import("@/pages/SettingsPage");
+const ApiPoolPage = lazy(() => loadApiPoolPage().then((m) => ({ default: m.ApiPoolPage })));
+const ChannelPage = lazy(() => loadChannelPage().then((m) => ({ default: m.ChannelPage })));
+const TokenPage = lazy(() => loadTokenPage().then((m) => ({ default: m.TokenPage })));
+const LogPage = lazy(() => loadLogPage().then((m) => ({ default: m.LogPage })));
+const DashboardPage = lazy(() => loadDashboardPage().then((m) => ({ default: m.DashboardPage })));
+const SettingsPage = lazy(() => loadSettingsPage().then((m) => ({ default: m.SettingsPage })));
 type WebAuthViewState =
   | { state: "checking" }
   | { state: "authenticated" }
   | { state: "login"; message?: string }
   | { state: "server_unreachable"; message: string }
   | { state: "expired"; message: string };
-
-const GUIDE_BASE = "https://github.com/NerdWu/wuAPI/blob/master/";
 
 function MainApp({ onLogout }: { onLogout?: () => void }) {
   const { i18n } = useTranslation();
@@ -33,18 +36,6 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
   const { data: settings } = useQuery({
     queryKey: ["settings"],
     queryFn: () => api.settings.get(),
-  });
-
-  const { data: proxyStatus } = useQuery({
-    queryKey: ["proxyStatus"],
-    queryFn: () => api.proxy.getStatus(),
-    refetchInterval: 2000,
-  });
-
-  const { data: adminStatus } = useQuery({
-    queryKey: ["adminStatus"],
-    queryFn: () => api.getAdminStatus(),
-    refetchInterval: 2000,
   });
 
   // 状态版本检测：组件挂载时检测一次，不轮询
@@ -63,7 +54,6 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
     },
   });
 
-  const [guideOpen, setGuideOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<{ current: string; latest: string; url: string } | null>(null);
 
   useEffect(() => {
@@ -74,13 +64,21 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
   }, [isDesktop]);
 
   useEffect(() => {
-    if (!settings) return;
-    if (isDesktop && settings.show_guide !== false) setGuideOpen(true);
-  }, [settings?.show_guide, isDesktop]);
-
-  const handleGuideDismiss = (dontShowAgain: boolean) => {
-    if (dontShowAgain && settings) api.settings.update({ ...settings, show_guide: false });
-  };
+    const preloadPages = () => {
+      void loadChannelPage();
+      void loadTokenPage();
+      void loadLogPage();
+      void loadDashboardPage();
+      void loadSettingsPage();
+    };
+    const requestIdle = window.requestIdleCallback;
+    if (requestIdle) {
+      const id = requestIdle(preloadPages, { timeout: 2000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const timer = window.setTimeout(preloadPages, 800);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!settings) return;
@@ -124,14 +122,11 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
   return (
     <MainShell
       currentPage={currentPage}
-      proxyStatus={proxyStatus}
-      adminStatus={adminStatus}
       settings={settings}
       updateInfo={updateInfo}
       onUpdateDismiss={() => setUpdateInfo(null)}
       onUpdateOpen={(url) => openExternal(url)}
       onNavigate={setCurrentPage}
-      onOpenGuide={(path) => openExternal(GUIDE_BASE + path)}
       onLogout={onLogout}
       desktopMode={isDesktop}
       renderPage={() => (
@@ -140,9 +135,6 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
         </Suspense>
       )}
     >
-      {isDesktop && settings?.show_guide !== false && (
-        <WelcomeGuide open={guideOpen} onOpenChange={setGuideOpen} onDismiss={handleGuideDismiss} />
-      )}
     </MainShell>
   );
 }
@@ -176,7 +168,7 @@ export default function App() {
       }
 
       if (result.status === "unreachable") {
-        setWebAuth({ state: "server_unreachable", message: "无法连接 Web Admin 服务，请确认服务正在运行。" });
+        setWebAuth({ state: "server_unreachable", message: "无法连接服务，请确认服务正在运行。" });
         return;
       }
 

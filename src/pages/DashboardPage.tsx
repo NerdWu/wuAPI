@@ -1,69 +1,59 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useApiAdapter } from "@/lib/useApiAdapter";
 import type { DashboardFilter } from "@/types";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
 } from "recharts";
 
 const COLORS = [
-  "#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#0088fe",
-  "#00C49F", "#FFBB28", "#FF8042", "#a855f7", "#ec4899",
+  "#2563eb",
+  "#16a34a",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#f97316",
+  "#84cc16",
+  "#ec4899",
+  "#64748b",
 ];
+
+const CHART_TEXT_STYLE = {
+  fontFamily: "inherit",
+  fontSize: 14,
+  fill: "hsl(var(--muted-foreground))",
+};
+const CHART_MARGIN = { top: 8, right: 18, left: 0, bottom: 2 };
+const TOOLTIP_STYLE = {
+  fontFamily: "inherit",
+  borderRadius: 10,
+  border: "1px solid hsl(var(--border))",
+  boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
+};
 
 type SeriesPoint = {
   time: string;
   [key: string]: string | number;
 };
 
-function formatCompactNumber(value: number): string {
-  const abs = Math.abs(value);
-  const units = [
-    { value: 1_000_000_000_000, suffix: "T" },
-    { value: 1_000_000_000, suffix: "B" },
-    { value: 1_000_000, suffix: "M" },
-    { value: 1_000, suffix: "K" },
-  ];
-
-  for (const unit of units) {
-    if (abs >= unit.value) {
-      const scaled = value / unit.value;
-      const digits = Math.abs(scaled) >= 10 ? 0 : 1;
-      return `${scaled.toFixed(digits).replace(/\.0$/, "")}${unit.suffix}`;
-    }
-  }
-
-  return String(value);
-}
-
-function formatFullNumber(value: number): string {
-  return new Intl.NumberFormat().format(value);
-}
+const toMillion = (value: number) => value / 1_000_000;
+const formatMillion = (value: number) => `${toMillion(value).toFixed(2)} M`;
 
 function buildSeriesData(
   items: Array<{ time: string; model: string; value: number }> | undefined,
   topN = 8,
 ): { data: SeriesPoint[]; series: string[] } {
-  if (!items?.length) {
-    return { data: [], series: [] };
-  }
+  if (!items?.length) return { data: [], series: [] };
 
   const totals = new Map<string, number>();
   for (const item of items) {
@@ -74,7 +64,6 @@ function buildSeriesData(
     .sort((a, b) => b[1] - a[1])
     .slice(0, topN)
     .map(([model]) => model);
-
   const allowed = new Set(series);
   const byTime = new Map<string, SeriesPoint>();
 
@@ -82,7 +71,7 @@ function buildSeriesData(
     const timeEntry = byTime.get(item.time) ?? { time: item.time };
     const key = allowed.has(item.model) ? item.model : "Other";
     const current = typeof timeEntry[key] === "number" ? Number(timeEntry[key]) : 0;
-    timeEntry[key] = current + item.value;
+    timeEntry[key] = current + toMillion(item.value);
     byTime.set(item.time, timeEntry);
   }
 
@@ -96,15 +85,20 @@ function buildSeriesData(
   };
 }
 
-function StatCard({ title, value, totalLabel }: { title: string; value: number; totalLabel?: string }) {
+function StatCard({ title, value, totalLabel }: { title: string; value: number | string; totalLabel?: string }) {
+  const displayValue = typeof value === "number" ? value.toLocaleString() : value;
   return (
-    <Card className="rounded-md">
-      <CardContent className="p-3">
-        <p className="text-xs text-muted-foreground">{title}</p>
-        <p className="mt-1 text-xl font-semibold">{value.toLocaleString()}</p>
-        {totalLabel !== undefined && (
-          <p className="text-xs text-muted-foreground mt-1">{totalLabel}</p>
-        )}
+    <Card className="rounded-xl">
+      <CardContent className="px-3 py-2.5">
+        <p className="text-sm text-muted-foreground leading-tight">{title}</p>
+        <p className="mt-1 text-2xl font-bold leading-7">
+          {displayValue}
+        </p>
+        {totalLabel !== undefined ? (
+          <p className="mt-1 text-xs leading-tight text-muted-foreground">
+            {totalLabel}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -114,6 +108,7 @@ export function DashboardPage() {
   const { t } = useTranslation();
   const api = useApiAdapter();
   const [filter, setFilter] = useState<DashboardFilter>({ granularity: "hour" });
+  const [visibleCount, setVisibleCount] = useState(24);
 
   const { data: stats } = useQuery({
     queryKey: ["dashboardStats", filter],
@@ -125,69 +120,35 @@ export function DashboardPage() {
     queryFn: () => api.usage.getModelConsumption(filter),
   });
 
-  const { data: callTrend } = useQuery({
-    queryKey: ["callTrend", filter],
-    queryFn: () => api.usage.getCallTrend(filter),
-  });
-
-  const { data: distribution } = useQuery({
-    queryKey: ["modelDistribution", filter],
-    queryFn: () => api.usage.getModelDistribution(filter),
-  });
-
-  const { data: userTrend } = useQuery({
-    queryKey: ["userTrend", filter],
-    queryFn: () => api.usage.getUserTrend(filter),
-  });
-
   const totalTokens = (stats?.total_prompt_tokens ?? 0) + (stats?.total_completion_tokens ?? 0);
   const todayTokens = (stats?.today_prompt_tokens ?? 0) + (stats?.today_completion_tokens ?? 0);
   const consumptionSeries = buildSeriesData(consumption);
-  const callTrendSeries = buildSeriesData(callTrend);
-  const userTrendSeries = buildSeriesData(userTrend, 6);
-
-  // Limit distribution to TOP 10
-  const distributionData = (() => {
-    if (!distribution?.length) return [];
-    return [...distribution].sort((a, b) => b.count - a.count).slice(0, 10);
-  })();
-
-  const setTimeRange = (range: string) => {
-    const now = Date.now() / 1000;
-    let start: number;
-    switch (range) {
-      case "today": {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        start = Math.floor(today.getTime() / 1000);
-        break;
-      }
-      case "7d":
-        start = now - 7 * 86400;
-        break;
-      case "30d":
-        start = now - 30 * 86400;
-        break;
-      default:
-        start = 0;
-    }
-    setFilter((prev) => ({ ...prev, start_time: start || undefined, end_time: undefined }));
-  };
+  const visibleConsumptionData = useMemo(() => {
+    const count = Math.max(5, Math.min(visibleCount, consumptionSeries.data.length || visibleCount));
+    return consumptionSeries.data.slice(-count);
+  }, [consumptionSeries.data, visibleCount]);
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-xl font-semibold">{t("dashboard.title")}</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setTimeRange("today")}>{t("dashboard.filter.today", "今日")}</Button>
-          <Button variant="outline" size="sm" onClick={() => setTimeRange("7d")}>{t("dashboard.filter.last7Days", "近 7 天")}</Button>
-          <Button variant="outline" size="sm" onClick={() => setTimeRange("30d")}>{t("dashboard.filter.last30Days", "近 30 天")}</Button>
-          <Button variant="outline" size="sm" onClick={() => setTimeRange("all")}>{t("dashboard.filter.all", "全部")}</Button>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{t("dashboard.filter.hour")}</span>
+          <Switch
+            checked={filter.granularity === "day"}
+            onCheckedChange={(checked) => {
+              setVisibleCount(30);
+              setFilter((prev) => ({
+                ...prev,
+                granularity: checked ? "day" : "hour",
+              }));
+            }}
+          />
+          <span>{t("dashboard.filter.day")}</span>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 md:grid-cols-4">
         <StatCard
           title={t("dashboard.cards.todayRequests")}
           value={stats?.today_requests ?? 0}
@@ -195,152 +156,79 @@ export function DashboardPage() {
         />
         <StatCard
           title={t("dashboard.cards.todayTokens")}
-          value={todayTokens}
-          totalLabel={`${t("dashboard.cards.total")}: ${totalTokens.toLocaleString()}`}
+          value={formatMillion(todayTokens)}
+          totalLabel={`${t("dashboard.cards.total")}: ${formatMillion(totalTokens)}`}
         />
         <StatCard
           title={t("dashboard.cards.todayPrompt")}
-          value={stats?.today_prompt_tokens ?? 0}
-          totalLabel={`${t("dashboard.cards.total")}: ${(stats?.total_prompt_tokens ?? 0).toLocaleString()}`}
+          value={formatMillion(stats?.today_prompt_tokens ?? 0)}
+          totalLabel={`${t("dashboard.cards.total")}: ${formatMillion(stats?.total_prompt_tokens ?? 0)}`}
         />
         <StatCard
           title={t("dashboard.cards.todayCompletion")}
-          value={stats?.today_completion_tokens ?? 0}
-          totalLabel={`${t("dashboard.cards.total")}: ${(stats?.total_completion_tokens ?? 0).toLocaleString()}`}
+          value={formatMillion(stats?.today_completion_tokens ?? 0)}
+          totalLabel={`${t("dashboard.cards.total")}: ${formatMillion(stats?.total_completion_tokens ?? 0)}`}
         />
       </div>
 
-      <div className="grid gap-4">
-        {/* Charts */}
-        <Tabs defaultValue="consumption">
-          <TabsList>
-            <TabsTrigger value="consumption">{t("dashboard.charts.consumption")}</TabsTrigger>
-            <TabsTrigger value="callTrend">{t("dashboard.charts.callTrend")}</TabsTrigger>
-            <TabsTrigger value="distribution">{t("dashboard.charts.distribution")}</TabsTrigger>
-            <TabsTrigger value="userTrend">{t("dashboard.charts.userTrend")}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="consumption">
-            <Card className="rounded-md">
-              <CardHeader className="pb-0">
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitle>{t("dashboard.charts.consumption")}</CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>{t("dashboard.filter.hour")}</span>
-                    <Switch
-                      checked={filter.granularity === "day"}
-                      onCheckedChange={(checked) =>
-                        setFilter((prev) => ({
-                          ...prev,
-                          granularity: checked ? "day" : "hour",
-                        }))
-                      }
-                    />
-                    <span>{t("dashboard.filter.day")}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={360}>
-                  <BarChart data={consumptionSeries.data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis tickFormatter={(value) => formatCompactNumber(Number(value))} />
-                    <Tooltip formatter={(value) => formatFullNumber(Number(value))} />
-                    <Legend />
-                    {consumptionSeries.series.map((series, index) => (
-                      <Bar
-                        key={series}
-                        dataKey={series}
-                        stackId="consumption"
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="callTrend">
-            <Card className="rounded-md">
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={360}>
-                  <LineChart data={callTrendSeries.data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    {callTrendSeries.series.map((series, index) => (
-                      <Line
-                        key={series}
-                        type="monotone"
-                        dataKey={series}
-                        stroke={COLORS[index % COLORS.length]}
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="distribution">
-            <Card className="rounded-md">
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={360}>
-                  <PieChart>
-                    <Pie
-                      data={distributionData}
-                      dataKey="count"
-                      nameKey="model"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={150}
-                      label
-                    >
-                      {distributionData.map((_, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="userTrend">
-            <Card className="rounded-md">
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={360}>
-                  <LineChart data={userTrendSeries.data}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    {userTrendSeries.series.map((series, index) => (
-                      <Line
-                        key={series}
-                        type="monotone"
-                        dataKey={series}
-                        stroke={COLORS[index % COLORS.length]}
-                        strokeWidth={2}
-                        dot={false}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+      <Card className="relative mt-6 min-h-0 flex-1 overflow-hidden rounded-xl">
+        <div className="absolute left-4 right-4 top-3 z-10 flex max-h-12 flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden text-xs text-muted-foreground">
+          {consumptionSeries.series.map((series, index) => (
+            <div key={series} className="flex min-w-0 items-center gap-1.5">
+              <span className="h-2.5 w-2.5 shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+              <span className="truncate">{series}</span>
+            </div>
+          ))}
+        </div>
+        <CardContent
+          className="h-full px-2 pb-1 pt-14"
+          onWheel={(event) => {
+            event.preventDefault();
+            setVisibleCount((prev) => {
+              const total = consumptionSeries.data.length || prev;
+              return event.deltaY < 0 ? Math.max(5, prev - 5) : Math.min(total, prev + 5);
+            });
+          }}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={visibleConsumptionData} margin={CHART_MARGIN} barCategoryGap="12%" barGap={0}>
+              <CartesianGrid stroke="hsl(var(--border))" vertical={false} opacity={0.35} />
+              <XAxis
+                dataKey="time"
+                tick={CHART_TEXT_STYLE}
+                axisLine={{ stroke: "#111827", strokeWidth: 1.5 }}
+                tickLine={{ stroke: "#111827", strokeWidth: 1 }}
+                minTickGap={24}
+              />
+              <YAxis
+                tick={CHART_TEXT_STYLE}
+                axisLine={{ stroke: "#111827", strokeWidth: 1.5 }}
+                tickLine={{ stroke: "#111827", strokeWidth: 1 }}
+                width={44}
+                tickFormatter={(value) => Number(value).toFixed(2)}
+              />
+              <Tooltip
+                shared={false}
+                contentStyle={TOOLTIP_STYLE}
+                labelStyle={CHART_TEXT_STYLE}
+                itemStyle={CHART_TEXT_STYLE}
+                formatter={(value: unknown, name: unknown) => [`${Number(value).toFixed(2)} M`, String(name)]}
+              />
+              {consumptionSeries.series.map((series, index) => (
+                <Bar
+                  key={series}
+                  dataKey={series}
+                  stackId="consumption"
+                  fill={COLORS[index % COLORS.length]}
+                  radius={0}
+                  minPointSize={4}
+                  maxBarSize={86}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -2,15 +2,15 @@
 
 ## 项目定位
 
-`E:\SoftWare\Project\wuAPI-worktree` 是 `wuAPI` 的标准 Git 工作目录，用于承接本地二改、同步上游、验证构建和准备发布。
+`E:\SoftWare\Project\wuAPI-worktree` 是 `wuAPI` 的唯一标准 Git 工作目录，用于承接本地二改、同步上游、验证构建和准备发布。
 
-目录职责固定如下：
+仓库职责固定如下：
 
 - `E:\SoftWare\Project\wuAPI-worktree`：当前标准开发与发布目录
-- `E:\SoftWare\Project\wuAPI`：历史本地二改目录，只作对照参考
-- `E:\SoftWare\Project\API-Switch`：上游/参考仓库来源，不作为当前最终修改目录
+- `origin`：`https://github.com/NerdWu/wuAPI`，用户个人二改仓库
+- `upstream`：`https://github.com/wang1970/API-Switch`，原项目参考远端，只用于后续审计和选择性迁移
 
-涉及多个相似目录时，先确认目录职责、Git 状态和远端地址，再进行任何修改、同步或提交操作。
+旧的 `wuAPI`、`wuAPI-git`、`API-Switch` 等本地重复目录已经不再作为当前工作区约定的一部分。如果之后又发现同名或相似目录，先确认 Git 状态、远端地址和实际用途，再进行任何修改、同步或提交操作。
 
 ## 约束先行
 
@@ -44,6 +44,13 @@
 - Backend: Rust, Axum, SQLite, `rusqlite`, `reqwest`
 - Package manager: `corepack pnpm`
 - Shell: 当前会话是 PowerShell 时，使用 PowerShell 兼容命令和路径写法
+
+## 产品范围
+
+- 当前软件按个人自用的 Windows 桌面工具维护，主目标是本地 API 渠道管理、API 池分组路由、测速、令牌、日志和数据看板。
+- GitHub 首页、README 和面向使用者的文档只介绍当前个人桌面版实际使用路径，不再宣传 Web 管理、Headless/服务器部署、浏览器管理入口或对外通用使用指南。
+- Web Admin、Headless、`dist-web-admin` 等代码和构建路径如果仍存在，按历史/上游遗留能力和构建依赖处理；除非用户明确要求恢复，否则不要把它们包装成当前产品卖点。
+- 该项目不是面向外部用户的通用发行版；文档优先服务用户本人和后续维护，不为陌生用户扩写教程。
 
 ## 目录职责
 
@@ -140,6 +147,8 @@ corepack pnpm dev
 ## 文档规则
 
 - 面向用户的文档默认以中文为主，英文内容不再作为主维护目标
-- README、GUIDE、CHANGELOG 只写对使用者和维护者有价值的信息
+- README 只写当前个人桌面版定位、核心能力、下游接入和维护入口；不要链接或扩写已不维护的使用指南
+- `GUIDE.md`、`GUIDE_CN.md` 已不再作为维护目标；除非用户明确要求恢复，不要重建指南文件，也不要从 README 引导用户阅读旧指南
+- CHANGELOG 只写对后续维护和提交回溯有价值的信息
 - `AGENTS.md` 只写长期规则，不写历史叙事
 - 涉及开发流程、同步流程、发布流程的稳定说明写入 `docs/`

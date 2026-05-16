@@ -286,7 +286,7 @@ git diff --check
 
 ### 尚未处理
 
-- 当前改动尚未提交。
+- 本地修改已整理为 6 个提交，当前分支为 `codex/wuapi-baseline`，相对 `origin/master` ahead 6。
 - 当前分支尚未推送；`git push` 仍需用户明确确认。
-- 根目录 `icon.png` 是当前图标生成脚本和桌面侧栏品牌图的输入源，提交时必须纳入版本控制。
-- `docs/superpowers/` 和对话导出 Markdown 仍为未跟踪文件，提交前需要决定是否纳入、移动或保留为本地文件。
+- 根目录 `icon.png` 已纳入本地提交，是当前图标生成脚本和桌面侧栏品牌图的输入源。
+- `docs/superpowers/`、对话导出 Markdown 和 `.agent_logs/` 仍为未跟踪文件；这些属于计划/会话/提交草稿材料，发布前需要决定是否保留为本地文件、归档或纳入版本控制。

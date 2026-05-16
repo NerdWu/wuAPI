@@ -59,7 +59,7 @@ export function SettingsEditor({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-base">{t("settings.proxy.title")}</CardTitle>
         </CardHeader>
@@ -99,7 +99,7 @@ export function SettingsEditor({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-base">{t("settings.security.title")}</CardTitle>
         </CardHeader>
@@ -114,7 +114,7 @@ export function SettingsEditor({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-base">{t("settings.circuit.title")}</CardTitle>
         </CardHeader>
@@ -181,11 +181,11 @@ export function SettingsEditor({
         </CardContent>
       </Card>
 
-      <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("settings.webAdmin.title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-base">{t("settings.webAdmin.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t("settings.webAdmin.enabled")}</Label>
@@ -243,10 +243,10 @@ export function SettingsEditor({
             {s.web_admin_enabled && s.web_admin_username && s.web_admin_password && (
               <div className="text-sm text-muted-foreground">{t("settings.webAdmin.address")}: http://127.0.0.1:{s.web_admin_port}/admin</div>
             )}
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-base">{t("settings.general.title")}</CardTitle>
         </CardHeader>
@@ -270,28 +270,36 @@ export function SettingsEditor({
                 </div>
                 <Switch checked={s.show_conversation_model} onCheckedChange={(value) => onChange("show_conversation_model", value)} />
               </div>
-              <div className="flex items-center justify-between">
-                <Label>{t("settings.tray.autostart")}</Label>
-                {isWeb ? (
-                  <span className="text-sm text-muted-foreground">{s.autostart ? t("common.enabled") : t("common.disabled")}</span>
-                ) : (
-                  <Switch checked={s.autostart} onCheckedChange={(value) => onChange("autostart", value)} />
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>{t("settings.tray.startMinimized")}</Label>
-                {isWeb ? (
-                  <span className="text-sm text-muted-foreground">{s.start_minimized ? t("common.enabled") : t("common.disabled")}</span>
-                ) : (
-                  <Switch checked={s.start_minimized} onCheckedChange={(value) => onChange("start_minimized", value)} />
-                )}
-              </div>
           {appVersion && (
             <div className="flex items-center justify-between pt-2 border-t">
               <Label className="text-muted-foreground">{t("settings.general.currentVersion")}</Label>
               <span className="text-sm font-mono text-muted-foreground">{appVersion}</span>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-base">{t("settings.tray.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>{t("settings.tray.autostart")}</Label>
+            {isWeb ? (
+              <span className="text-sm text-muted-foreground">{s.autostart ? t("common.enabled") : t("common.disabled")}</span>
+            ) : (
+              <Switch checked={s.autostart} onCheckedChange={(value) => onChange("autostart", value)} />
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <Label>{t("settings.tray.startMinimized")}</Label>
+            {isWeb ? (
+              <span className="text-sm text-muted-foreground">{s.start_minimized ? t("common.enabled") : t("common.disabled")}</span>
+            ) : (
+              <Switch checked={s.start_minimized} onCheckedChange={(value) => onChange("start_minimized", value)} />
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

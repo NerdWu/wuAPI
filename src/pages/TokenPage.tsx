@@ -105,6 +105,8 @@ export function TokenPage() {
     return d.toLocaleString();
   };
 
+  const formatKeyPreview = (value: string) => `${value.slice(0, 8)}...${value.slice(-4)}`;
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -116,33 +118,35 @@ export function TokenPage() {
       </div>
 
       {keys?.length ? (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-hidden rounded-md border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/50 text-left text-muted-foreground">
-                <th className="px-4 py-2 font-medium w-16">{t("token.enabled")}</th>
-                <th className="px-4 py-2 font-medium">{t("token.name")}</th>
-                <th className="px-4 py-2 font-medium">{t("token.key")}</th>
-                <th className="px-4 py-2 font-medium">{t("token.created")}</th>
-                <th className="px-4 py-2 font-medium w-16">{t("common.action")}</th>
+              <tr className="border-b bg-muted/50 text-muted-foreground">
+                <th className="w-16 px-4 py-2 text-center font-medium">{t("token.enabled")}</th>
+                <th className="px-4 py-2 text-center font-medium">{t("token.name")}</th>
+                <th className="px-4 py-2 text-center font-medium">{t("token.key")}</th>
+                <th className="px-4 py-2 text-center font-medium">{t("token.created")}</th>
+                <th className="w-16 px-4 py-2 text-center font-medium">{t("common.action")}</th>
               </tr>
             </thead>
             <tbody>
               {keys.map((key) => (
                 <tr key={key.id} className="border-b last:border-b-0 hover:bg-muted/30">
                   <td className="px-4 py-3">
-                    <Switch
-                      checked={key.enabled}
-                      onCheckedChange={(checked) =>
-                        toggleMutation.mutate({ id: key.id, enabled: checked })
-                      }
-                    />
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={key.enabled}
+                        onCheckedChange={(checked) =>
+                          toggleMutation.mutate({ id: key.id, enabled: checked })
+                        }
+                      />
+                    </div>
                   </td>
-                  <td className="px-4 py-3 font-medium">{key.name}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 min-w-0">
-                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono break-all flex-1 min-w-0">
-                        {key.key}
+                  <td className="px-4 py-3 text-center font-medium">{key.name}</td>
+                  <td className="px-4 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                        {formatKeyPreview(key.key)}
                       </code>
                       <Button
                         variant="ghost"
@@ -158,17 +162,19 @@ export function TokenPage() {
                       </Button>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(key.created_at)}</td>
-<td className="px-4 py-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setDeleteTarget(key)}
-        >
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-        </Button>
-      </td>
+                  <td className="px-4 py-3 text-center text-xs text-muted-foreground">{formatDate(key.created_at)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setDeleteTarget(key)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

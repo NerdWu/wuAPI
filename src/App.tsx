@@ -85,13 +85,22 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
   useEffect(() => {
     if (!settings) return;
     const saved = localStorage.getItem("wuapi-locale");
-    if (!saved && settings.locale) i18n.changeLanguage(settings.locale);
+    if (isDesktop) {
+      i18n.changeLanguage("zh");
+      localStorage.setItem("wuapi-locale", "zh");
+    } else if (!saved && settings.locale) {
+      i18n.changeLanguage(settings.locale);
+    }
     const root = document.documentElement;
+    if (isDesktop) {
+      root.classList.remove("dark");
+      return;
+    }
     if (settings.theme === "dark") root.classList.add("dark");
     else if (settings.theme === "light") root.classList.remove("dark");
     else if (window.matchMedia("(prefers-color-scheme: dark)").matches) root.classList.add("dark");
     else root.classList.remove("dark");
-  }, [settings]);
+  }, [i18n, isDesktop, settings]);
 
   const openExternal = (url: string) => {
     if (isDesktop) import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(url));
@@ -124,6 +133,7 @@ function MainApp({ onLogout }: { onLogout?: () => void }) {
       onNavigate={setCurrentPage}
       onOpenGuide={(path) => openExternal(GUIDE_BASE + path)}
       onLogout={onLogout}
+      desktopMode={isDesktop}
       renderPage={() => (
         <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
           {renderPage()}

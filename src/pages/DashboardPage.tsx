@@ -98,10 +98,10 @@ function buildSeriesData(
 
 function StatCard({ title, value, totalLabel }: { title: string; value: number; totalLabel?: string }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-2xl font-bold mt-1">{value.toLocaleString()}</p>
+    <Card className="rounded-md">
+      <CardContent className="p-3">
+        <p className="text-xs text-muted-foreground">{title}</p>
+        <p className="mt-1 text-xl font-semibold">{value.toLocaleString()}</p>
         {totalLabel !== undefined && (
           <p className="text-xs text-muted-foreground mt-1">{totalLabel}</p>
         )}
@@ -176,10 +176,18 @@ export function DashboardPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-semibold mb-6">{t("dashboard.title")}</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t("dashboard.title")}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setTimeRange("today")}>{t("dashboard.filter.today", "今日")}</Button>
+          <Button variant="outline" size="sm" onClick={() => setTimeRange("7d")}>{t("dashboard.filter.last7Days", "近 7 天")}</Button>
+          <Button variant="outline" size="sm" onClick={() => setTimeRange("30d")}>{t("dashboard.filter.last30Days", "近 30 天")}</Button>
+          <Button variant="outline" size="sm" onClick={() => setTimeRange("all")}>{t("dashboard.filter.all", "全部")}</Button>
+        </div>
+      </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard
           title={t("dashboard.cards.todayRequests")}
           value={stats?.today_requests ?? 0}
@@ -202,7 +210,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {/* Charts */}
         <Tabs defaultValue="consumption">
           <TabsList>
@@ -213,7 +221,7 @@ export function DashboardPage() {
           </TabsList>
 
           <TabsContent value="consumption">
-            <Card>
+            <Card className="rounded-md">
               <CardHeader className="pb-0">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle>{t("dashboard.charts.consumption")}</CardTitle>
@@ -233,7 +241,7 @@ export function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={360}>
                   <BarChart data={consumptionSeries.data}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="time" />
@@ -255,9 +263,9 @@ export function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="callTrend">
-            <Card>
+            <Card className="rounded-md">
               <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={360}>
                   <LineChart data={callTrendSeries.data}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="time" />
@@ -281,9 +289,9 @@ export function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="distribution">
-            <Card>
+            <Card className="rounded-md">
               <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={360}>
                   <PieChart>
                     <Pie
                       data={distributionData}
@@ -307,9 +315,9 @@ export function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="userTrend">
-            <Card>
+            <Card className="rounded-md">
               <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={400}>
+                <ResponsiveContainer width="100%" height={360}>
                   <LineChart data={userTrendSeries.data}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="time" />

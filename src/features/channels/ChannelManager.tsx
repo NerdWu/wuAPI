@@ -39,7 +39,7 @@ const API_TYPES = [
   { value: 'claude', label: 'Claude' },
   { value: 'gemini', label: 'Gemini' },
   { value: 'azure', label: 'Azure' },
-  { value: 'responses', label: 'OpenAI-Responses(bate)' },
+  { value: 'responses', label: 'OpenAI Responses (Beta)' },
 ];
 
 const DEFAULT_FORM: ChannelFormState = {
@@ -296,16 +296,15 @@ export const ChannelManager: React.FC = () => {
   };
 
   return (
-    <div className="border border-border bg-card p-6 shadow-sm">
-      <div className="space-y-6">
+    <div className="p-6 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold">{t('channel.editor.newChannel')}</h1>
+            <h1 className="text-xl font-semibold">{t('channel.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t('channel.description')}</p>
           </div>
           <Button size="sm" className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" />
-            {t('channel.editor.tipsAdd')}
+            {t('channel.add')}
           </Button>
         </div>
 
@@ -430,7 +429,7 @@ export const ChannelManager: React.FC = () => {
                 </>
               ) : channels.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">{t('channel.editor.channelListEmpty')}</td>
+                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{t('channel.editor.channelListEmpty')}</td>
                 </tr>
               ) : (
                 channels.map((channel) => (
@@ -474,7 +473,6 @@ export const ChannelManager: React.FC = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
     </div>
   );
 };
@@ -692,12 +690,78 @@ function ChannelRow({
         </td>
       </tr>
 
-      {expanded && channel.notes ? (
+      {expanded ? (
         <tr className="border-b border-border bg-muted/20">
           <td colSpan={7} className="px-4 py-3">
-            <div className="space-y-1 text-sm max-w-3xl">
-              <div className="font-medium text-muted-foreground">{t('channel.notes')}</div>
-              <pre className="whitespace-pre-wrap break-all">{channel.notes}</pre>
+            <div className="grid gap-3 text-sm lg:grid-cols-[minmax(220px,320px)_1fr]">
+              <div className="space-y-3">
+                <div className="rounded-md border border-border bg-background px-3 py-2">
+                  <div className="mb-1 text-xs font-medium text-muted-foreground">{t('channel.notes')}</div>
+                  {channel.notes ? (
+                    <pre className="max-h-28 whitespace-pre-wrap break-all text-xs leading-5">{channel.notes}</pre>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{t('common.noData')}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={(event) => { event.stopPropagation(); probeUrl(); }}
+                    disabled={probing}
+                  >
+                    <RefreshCw className={cn('h-3.5 w-3.5', probing && 'animate-spin')} />
+                    {t('channel.testAllLatency')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={(event) => { event.stopPropagation(); fetchModels(); }}
+                    disabled={fetching}
+                  >
+                    <RefreshCw className={cn('h-3.5 w-3.5', fetching && 'animate-spin')} />
+                    {t('channel.editor.fetchModels')}
+                  </Button>
+                </div>
+                {(probeResult || rowError) && (
+                  <div className={cn('text-xs', rowError ? 'text-destructive' : 'text-green-600')}>
+                    {rowError || `${t('channel.responseTime')}: ${probeResult}`}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-md border border-border bg-background">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t('channel.editor.modelsTitle', { count: availableModels.length })}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {t('channel.editor.modelsSelected', { count: selectedModels.length })}
+                  </div>
+                </div>
+                {availableModels.length ? (
+                  <div className="grid max-h-56 gap-0 overflow-y-auto p-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {availableModels.map((model) => (
+                      <label
+                        key={model.name}
+                        className="flex min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-muted"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={selectedModels.includes(model.name)}
+                          onCheckedChange={() => toggleModel(model.name)}
+                          disabled={saving}
+                        />
+                        <span className="truncate font-mono" title={model.name}>{model.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-3 py-6 text-center text-xs text-muted-foreground">{t('channel.editor.modelsEmpty')}</div>
+                )}
+              </div>
             </div>
           </td>
         </tr>

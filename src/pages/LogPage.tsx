@@ -41,11 +41,17 @@ function formatAttemptPath(meta: UsageLogMeta | null): string[] {
     .filter(Boolean);
 }
 
+const formatTokenMillion = (value: number) => `${(value / 1_000_000).toFixed(2)} M`;
+
 export function LogPage() {
   const { t } = useTranslation();
   const api = useApiAdapter();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<UsageLogFilter>({ page: 1, page_size: 100 });
+  const [filter, setFilter] = useState<UsageLogFilter>(() => {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
+    return { page: 1, page_size: 200, start_time: todayMidnight };
+  });
   const [errorsOnly, setErrorsOnly] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -58,10 +64,12 @@ export function LogPage() {
     queryFn: () => api.usage.getLogs(filter),
   });
 
-  const logs = result?.items || [];
+  const rawLogs = result?.items || [];
+  const isDisplaySuccess = (log: (typeof rawLogs)[number]) => log.success || (log.prompt_tokens > 0 && log.completion_tokens > 0);
+  const logs = errorsOnly ? rawLogs.filter((log) => !isDisplaySuccess(log)) : rawLogs;
   const totalPrompt = logs.reduce((sum, log) => sum + log.prompt_tokens, 0);
   const totalCompletion = logs.reduce((sum, log) => sum + log.completion_tokens, 0);
-  const successCount = logs.filter((log) => log.success).length;
+  const successCount = logs.filter((log) => isDisplaySuccess(log)).length;
 
   if (isLoading) {
     return (
@@ -143,9 +151,9 @@ export function LogPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">{t("log.title")}</h1>
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">{t("log.all")}</span>
+          <span className={errorsOnly ? "text-red-500" : "text-muted-foreground"}>{t("log.all")}</span>
           <Switch checked={errorsOnly} onCheckedChange={toggleErrorsOnly} />
-          <span className="text-muted-foreground">{t("log.failed")}</span>
+          <span className={!errorsOnly ? "text-muted-foreground" : "text-red-500"}>{t("log.failed")}</span>
         </div>
       </div>
 
@@ -159,13 +167,13 @@ export function LogPage() {
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">{t("log.promptTokens")}</div>
-            <div className="text-2xl font-semibold mt-1">{totalPrompt}</div>
+            <div className="text-2xl font-semibold mt-1" style={{ fontFamily: '"Times New Roman", Times, serif' }}>{formatTokenMillion(totalPrompt)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">{t("log.completionTokens")}</div>
-            <div className="text-2xl font-semibold mt-1">{totalCompletion}</div>
+            <div className="text-2xl font-semibold mt-1" style={{ fontFamily: '"Times New Roman", Times, serif' }}>{formatTokenMillion(totalCompletion)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -176,8 +184,8 @@ export function LogPage() {
         </Card>
       </div>
 
-      <div className="rounded-md border overflow-x-hidden">
-        <table className="w-full table-fixed text-sm">
+      <div className="rounded-md border overflow-auto">
+        <table className="w-full text-sm">
           <colgroup>
             <col className="w-40" />
             <col className="w-28" />
@@ -190,14 +198,14 @@ export function LogPage() {
           </colgroup>
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">{t("log.time")}</th>
-              <th className="px-3 py-2 text-left font-medium truncate">{t("log.channel")}</th>
-              <th className="px-3 py-2 text-left font-medium truncate">{t("log.token")}</th>
-              <th className="px-3 py-2 text-left font-medium truncate">{t("log.model")}</th>
-              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">{t("log.duration")}</th>
-              <th className="px-3 py-2 text-right font-medium">{t("log.promptTokens")}</th>
-              <th className="px-3 py-2 text-right font-medium">{t("log.completionTokens")}</th>
-              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">{t("log.status")}</th>
+              <th className="px-3 py-2 text-center font-medium whitespace-nowrap">{t("log.time")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("log.channel")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("log.token")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("log.model")}</th>
+              <th className="px-3 py-2 text-center font-medium whitespace-nowrap">{t("log.duration")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("log.promptTokens")}</th>
+              <th className="px-3 py-2 text-center font-medium">{t("log.completionTokens")}</th>
+              <th className="px-3 py-2 text-center font-medium whitespace-nowrap">{t("log.status")}</th>
             </tr>
           </thead>
           <tbody>
@@ -207,17 +215,23 @@ export function LogPage() {
               const resolvedModel = meta?.resolved_model || log.model;
               const requestedModel = meta?.requested_model || log.requested_model;
               const attemptPath = formatAttemptPath(meta);
+              const displaySuccess = isDisplaySuccess(log);
               return (
                 <Fragment key={log.id}>
                   <tr className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : log.id)}>
-                    <td className="px-3 py-2 whitespace-nowrap"><div>{new Date(log.created_at * 1000).toLocaleString()}</div></td>
-                    <td className="px-3 py-2 min-w-0"><div className="truncate" title={log.channel_name}>{log.channel_name}</div></td>
-                    <td className="px-3 py-2 min-w-0"><div className="truncate" title={log.token_name || log.access_key_name || undefined}>{log.token_name || log.access_key_name || <span className="text-muted-foreground">-</span>}</div></td>
-                    <td className="px-3 py-2 font-mono text-xs min-w-0"><div className="truncate" title={resolvedModel}>{resolvedModel}</div></td>
-                    <td className="px-3 py-2 whitespace-nowrap"><div>{`${log.use_time || Math.ceil(log.latency_ms / 1000)}s${log.is_stream && log.first_token_ms > 0 ? ` / ${(log.first_token_ms / 1000).toFixed(1)}s` : ""}  ${log.is_stream ? t("log.streamShort") : t("log.nonStreamShort")}`}</div></td>
-                    <td className="px-3 py-2 text-right">{log.prompt_tokens}</td>
-                    <td className="px-3 py-2 text-right">{log.completion_tokens}</td>
-                    <td className="px-3 py-2 whitespace-nowrap"><span className={log.success ? "text-green-600" : "text-red-500"}>{log.success ? t("log.success") : t("log.failed")}</span></td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap"><div>{new Date(log.created_at * 1000).toLocaleString()}</div></td>
+                    <td className="px-3 py-2 text-center"><div>{log.channel_name}</div></td>
+                    <td className="px-3 py-2 text-center"><div>{log.token_name || log.access_key_name || <span className="text-muted-foreground">-</span>}</div></td>
+                    <td className="px-3 py-2 text-center font-mono text-xs">
+                      <div>{requestedModel === "auto" ? `(auto) ${resolvedModel}` : resolvedModel}</div>
+                      {requestedModel && requestedModel !== resolvedModel ? (
+                        <div className="mt-0.5 text-muted-foreground">{t("log.requestedModel")}: {requestedModel}</div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap"><div>{`${log.use_time || Math.ceil(log.latency_ms / 1000)}s${log.is_stream && log.first_token_ms > 0 ? ` / ${(log.first_token_ms / 1000).toFixed(1)}s` : ""}  ${log.is_stream ? t("log.streamShort") : t("log.nonStreamShort")}`}</div></td>
+                    <td className="px-3 py-2 text-center" style={{ fontFamily: '"Times New Roman", Times, serif' }}>{log.prompt_tokens.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-center" style={{ fontFamily: '"Times New Roman", Times, serif' }}>{log.completion_tokens.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap"><span className={displaySuccess ? "text-green-600" : "text-red-500"}>{displaySuccess ? t("log.success") : t("log.failed")}</span></td>
                   </tr>
                   {isExpanded ? (
                     <tr className="border-b bg-muted/20">

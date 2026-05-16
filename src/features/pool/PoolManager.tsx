@@ -41,10 +41,10 @@ import {
 import {
   arrayMove,
   horizontalListSortingStrategy,
+  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -359,59 +359,110 @@ function CardBody({
 }) {
   const { t } = useTranslation();
   const cooldownRemaining = formatCooldownRemaining(entry.cooldown_until);
+  const responseNode = testingEntryIds?.has(entry.id) ? (
+    <RefreshCw className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" />
+  ) : testResult === "X" ? (
+    <XCircle className="h-3 w-3 shrink-0 text-red-500" />
+  ) : testResult ? (
+    <span className="text-xs text-green-600 shrink-0">({formatResponseMs(testResult)})</span>
+  ) : entry.response_ms === "X" ? (
+    <XCircle className="h-3 w-3 shrink-0 text-red-500" />
+  ) : entry.response_ms ? (
+    <span className="text-xs text-green-600 shrink-0">({formatResponseMs(entry.response_ms)})</span>
+  ) : null;
+
   return (
     <>
-      <div className="h-10 w-10 rounded-md bg-muted/40 border flex items-center justify-center shrink-0 mt-0.5">
-        <img src={catalogLogo} alt="provider" className="h-6 w-6 shrink-0" loading="lazy" onError={(e) => {
-          e.currentTarget.onerror = null;
-          e.currentTarget.src = `${import.meta.env.BASE_URL}logo/custom.svg`;
-        }} />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted/40">
+        <img
+          src={catalogLogo}
+          alt="provider"
+          className="h-6 w-6 shrink-0"
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = `${import.meta.env.BASE_URL}logo/custom.svg`;
+          }}
+        />
       </div>
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-medium truncate">{entry.model}</span>
-          <StatusDot state={getEntryStatus(entry)} />
-          <span className="font-medium truncate">{entry.channel_name || "—"}</span>
-          {testingEntryIds?.has(entry.id) ? <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
-            : testResult === "X" ? <XCircle className="h-3 w-3 text-red-500 shrink-0" />
-            : testResult ? <span className="text-xs text-green-600 shrink-0">({formatResponseMs(testResult)})</span>
-            : entry.response_ms === "X" ? <XCircle className="h-3 w-3 text-red-500 shrink-0" />
-            : entry.response_ms ? <span className="text-xs text-green-600 shrink-0">({formatResponseMs(entry.response_ms)})</span>
-            : null}
-          {cooldownRemaining ? <span className="text-xs text-red-500 shrink-0">{t("apiPool.cooldownInline", { time: cooldownRemaining })}</span> : null}
-        </div>
-          <div className="mt-1 flex items-center gap-2 min-w-0">
-            <ModelMetaBlock
-              metaZh={modelMetaZh}
-              metaEn={modelMetaEn}
-              releaseDate={catalogReleaseDate}
-              context={catalogContext}
-              output={catalogOutput}
-              features={catalogFeatures.map((f) => t(`apiPool.modelMeta.features.${f}`))}
-            />
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <StatusDot state={getEntryStatus(entry)} />
+              <span className="truncate text-sm font-medium leading-5">{entry.display_name || entry.model}</span>
+            </div>
+            <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+              <span className="truncate">{entry.channel_name || "—"}</span>
+              {responseNode}
+            </div>
+            {entry.display_name && entry.display_name !== entry.model ? (
+              <div className="truncate text-[11px] text-muted-foreground">
+                {t("apiPool.originalModel", { defaultValue: "原始" })}: {entry.model}
+              </div>
+            ) : null}
           </div>
-      </div>
-<div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-0.5">
             {groups && onGroupChange ? (
               <GroupSelector value={entry.group_name || "auto"} groups={groups} onChange={(group) => onGroupChange(entry, group)} />
             ) : null}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground touch-none" onClick={() => onTest(entry)}>
-              <MessageSquare className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 touch-none text-muted-foreground hover:text-foreground" onClick={() => onTest(entry)}>
+              <MessageSquare className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500 touch-none" onClick={() => onDelete(entry)}>
-              <Trash2 className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 touch-none text-muted-foreground hover:text-red-500" onClick={() => onDelete(entry)}>
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
+            <Switch
+              checked={entry.enabled}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleIntent(entry, !entry.enabled, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, metaKey: e.metaKey });
+              }}
+              onCheckedChange={() => {}}
+              className="touch-none"
+            />
           </div>
-          <Switch checked={entry.enabled} onClick={(e) => {
-            e.stopPropagation();
-            onToggleIntent(entry, !entry.enabled, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, metaKey: e.metaKey });
-          }} onCheckedChange={() => {}} className="touch-none" />
         </div>
+
+        {cooldownRemaining ? (
+          <div className="mt-1 text-xs text-red-500">
+            {t("apiPool.cooldownInline", { time: cooldownRemaining })}
+          </div>
+        ) : null}
+
+        <div className="mt-1 min-w-0">
+          <ModelMetaBlock
+            metaZh={modelMetaZh}
+            metaEn={modelMetaEn}
+            releaseDate={catalogReleaseDate}
+            context={catalogContext}
+            output={catalogOutput}
+            features={catalogFeatures.map((f) => t(`apiPool.modelMeta.features.${f}`))}
+          />
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-1">
+          <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] leading-4 text-secondary-foreground">
+            {entry.group_name || "auto"}
+          </span>
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[11px] leading-4",
+              entry.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
+            )}
+          >
+            {entry.enabled ? t("apiPool.enabled") : t("apiPool.disabled")}
+          </span>
+          {catalogReleaseDate ? (
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-4 text-muted-foreground">
+              {catalogReleaseDate}
+            </span>
+          ) : null}
+        </div>
+      </div>
     </>
   );
 }
-
 function SortablePoolEntryCard(props: {
   entry: ApiEntry;
   onTest: (entry: ApiEntry) => void;
@@ -430,11 +481,17 @@ function SortablePoolEntryCard(props: {
   modelMetaEn?: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.entry.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : undefined, opacity: isDragging ? 0.8 : undefined };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.8 : undefined,
+  };
+
   return (
-    <Card ref={setNodeRef} style={style} className={cn("transition-opacity", !props.entry.enabled && "opacity-60")}>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div {...attributes} {...listeners} className="cursor-pointer text-muted-foreground hover:text-foreground">
+    <Card ref={setNodeRef} style={style} className={cn("h-full min-h-[138px] border shadow-sm transition-opacity", !props.entry.enabled && "opacity-60")}>
+      <CardContent className="flex h-full items-start gap-3 p-3">
+        <div {...attributes} {...listeners} className="cursor-pointer pt-0.5 text-muted-foreground hover:text-foreground">
           <GripVertical className="h-3.5 w-3.5 shrink-0" />
         </div>
         <CardBody {...props} />
@@ -461,15 +518,13 @@ function PoolEntryCard(props: {
   modelMetaEn?: string;
 }) {
   return (
-    <Card className={cn("transition-opacity", !props.entry.enabled && "opacity-60")}>
-      <CardContent className="flex items-center gap-3 p-4">
+    <Card className={cn("h-full min-h-[138px] border shadow-sm transition-opacity", !props.entry.enabled && "opacity-60")}>
+      <CardContent className="flex h-full items-start gap-3 p-3">
         <CardBody {...props} />
       </CardContent>
     </Card>
   );
-}
-
-function AddApiDialog({ open, onOpenChange, channels, channelsLoading, adapter, groups, defaultGroup }: {
+}function AddApiDialog({ open, onOpenChange, channels, channelsLoading, adapter, groups, defaultGroup }: {
 open: boolean;
 onOpenChange: (value: boolean) => void;
 channels: Channel[];
@@ -702,14 +757,14 @@ export function PoolManager() {
 
    // Desktop-only: Real-time tray reprioritisation via Tauri event.
    // This hook is a no-op on web builds (useTauriEvent returns false).
-   // Event: "tray-priority-changed" — triggered when user reorders entries via system tray.
+   // Event: "tray-priority-changed" 鈥?triggered when user reorders entries via system tray.
    useTauriEvent("tray-priority-changed", () => {
      queryClient.invalidateQueries({ queryKey: ["entries"] });
      queryClient.invalidateQueries({ queryKey: ["settings"] });
    });
 
    // Event-driven refresh: invalidate entries when the backend signals a change.
-   // 300ms 防抖：避免 Tauri 事件风暴导致连续重渲染
+   // 300ms 防抖：避免 Tauri 事件风暴导致连续重刷查询
    const lastEntriesEvent = useRef(0);
    useEvent("entries-changed", () => {
      const now = Date.now();
@@ -749,7 +804,7 @@ export function PoolManager() {
 
   // 过滤条件已进入 queryKey 并由后端分页接口处理，这里只消费当前页结果
   const filteredEntries = useMemo(() => displayEntries, [displayEntries]);
-  // 全局排序不依赖于分组/渠道筛选；仅在搜索时不可用
+  // 全局排序不依赖分组/渠道筛选；仅在搜索时不可用
   const canReorder = !debouncedFilter.trim();
 
   const reorderMutation = useMutation({
@@ -935,10 +990,17 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
           </Button>
         </div>
       </div>
-      <div className="sticky top-0 z-10 bg-background pt-1 pb-1">
-        <div className="relative">
-          <Input className="flex-1 pr-8" placeholder={t("apiPool.search")} value={filterText} onChange={(e) => setFilterText(e.target.value)} />
-          {filterText ? <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setFilterText("")}><X className="h-4 w-4" /></button> : null}
+      <div className="mt-4 rounded-md border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 p-3">
+          <div className="relative min-w-[240px] flex-1">
+            <Input className="pr-8" placeholder={t("apiPool.search")} value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+            {filterText ? <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setFilterText("")}><X className="h-4 w-4" /></button> : null}
+          </div>
+          <ChannelFilter channels={channels || []} value={filterChannel} onChange={setFilterChannel} />
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => queryClient.invalidateQueries({ queryKey: ["entries"] })}>
+            <RefreshCw className="h-4 w-4" />
+            {t("apiPool.refreshModelList", { defaultValue: "刷新模型列表" })}
+          </Button>
         </div>
       </div>
       {groups.length > 0 ? (
@@ -965,8 +1027,8 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
             <div className="flex h-48 items-center justify-center text-muted-foreground">{t("apiPool.empty")}</div>
           ) : canReorder ? (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={filteredEntries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-3">
+              <SortableContext items={filteredEntries.map((e) => e.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
                   {filteredEntries.map((entry) => {
                     const meta = getEntryDisplayMeta(entry, catalogMap);
                     return <SortablePoolEntryCard key={entry.id} entry={entry} onTest={setTestEntry} onDelete={setDeleteTarget} onToggleIntent={handleToggleIntent} onGroupChange={handleGroupChange} groups={groups} testingEntryIds={testingEntryIds} testResult={testResults[entry.id]} catalogLogo={meta.logo} catalogReleaseDate={meta.releaseDate} catalogContext={meta.context} catalogOutput={meta.output} catalogFeatures={meta.features} modelMetaZh={meta.modelMetaZh} modelMetaEn={meta.modelMetaEn} />;
@@ -982,7 +1044,7 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               {filteredEntries.map((entry) => {
                 const meta = getEntryDisplayMeta(entry, catalogMap);
                 return <PoolEntryCard key={entry.id} entry={entry} onTest={setTestEntry} onDelete={setDeleteTarget} onToggleIntent={handleToggleIntent} onGroupChange={handleGroupChange} groups={groups} testingEntryIds={testingEntryIds} testResult={testResults[entry.id]} catalogLogo={meta.logo} catalogReleaseDate={meta.releaseDate} catalogContext={meta.context} catalogOutput={meta.output} catalogFeatures={meta.features} modelMetaZh={meta.modelMetaZh} modelMetaEn={meta.modelMetaEn} />;
@@ -1018,6 +1080,33 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ChannelFilter({
+  channels,
+  value,
+  onChange,
+}: {
+  channels: Channel[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full md:w-48">
+        <SelectValue placeholder={t("apiPool.filterChannel")} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{t("apiPool.filterChannel")}</SelectItem>
+        {channels.map((channel) => (
+          <SelectItem key={channel.id} value={channel.id}>
+            {channel.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

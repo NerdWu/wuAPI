@@ -446,7 +446,18 @@ pub async fn fetch_models(
         }
     };
 
-    db.update_channel_models(&channel_id, &result.models, &[])?;
+    let selected_models = channel.selected_models.clone();
+    let available_names = result
+        .models
+        .iter()
+        .map(|model| model.name.to_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    let retained_selected_models = selected_models
+        .into_iter()
+        .filter(|model| available_names.contains(&model.to_lowercase()))
+        .collect::<Vec<_>>();
+
+    db.update_channel_models(&channel_id, &result.models, &retained_selected_models)?;
     Ok(result)
 }
 

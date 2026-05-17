@@ -20,7 +20,7 @@ import { getCatalogModel, getCatalogProviderLogo, formatTokenCount } from '@/lib
 import { useApiAdapter } from '../../lib/useApiAdapter';
 import { useEvent } from '@/lib/events';
 import { getChannelErrorMessage } from './channelErrors';
-import type { PaginatedResult } from '@/types';
+import type { PaginatedResult, ApiEntry } from '@/types';
 import type { Channel, CreateChannelParams, ModelInfo, UpdateChannelParams, ModelCatalogMetaUpdate } from './types';
 
 type ChannelFormState = {
@@ -70,6 +70,25 @@ function formatReleaseDate(value?: string) {
   const monthOnly = value.match(/^(\d{4})-(\d{2})$/);
   if (monthOnly) return `${value}-01`;
   return value;
+}
+
+function normalizeGroupName(value?: string | null) {
+  return value?.trim() || 'auto';
+}
+
+function deriveChannelTargetGroupState(channel: Channel | null, entries?: ApiEntry[]) {
+  if (!channel) return { name: 'auto', mixed: false };
+  const selected = new Set((channel.selected_models || []).map((model) => model.toLowerCase()));
+  if (!selected.size || !entries?.length) return { name: 'auto', mixed: false };
+  const groups = Array.from(new Set(
+    entries
+      .filter((entry) => entry.channel_id === channel.id && selected.has(entry.model.toLowerCase()))
+      .map((entry) => normalizeGroupName(entry.group_name)),
+  ));
+  if (groups.length === 1) {
+    return { name: groups[0], mixed: false };
+  }
+  return { name: 'auto', mixed: groups.length > 1 };
 }
 
 function buildEntryCatalogMeta(modelName: string): ModelCatalogMetaUpdate {
@@ -780,6 +799,9 @@ function ChannelEditorDialog({
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [targetGroupName, setTargetGroupName] = useState('auto');
+  const [targetGroupDirty, setTargetGroupDirty] = useState(false);
+  const [initialTargetGroupName, setInitialTargetGroupName] = useState('auto');
+  const [initialTargetGroupMixed, setInitialTargetGroupMixed] = useState(false);
   const [targetGroupOpen, setTargetGroupOpen] = useState(false);
   const [urlProbe, setUrlProbe] = useState<{ reachable: boolean; latency_ms: number; status_code?: number; detected_type?: string; message: string } | null>(null);
   const [probingUrl, setProbingUrl] = useState(false);
@@ -791,6 +813,12 @@ function ChannelEditorDialog({
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!channel;
+  const { data: entries } = useQuery({
+    queryKey: ['entries', 'all'],
+    queryFn: () => api.pool.list(),
+    staleTime: 2000,
+    enabled: open,
+  });
   const { data: poolGroups } = useQuery({
     queryKey: ['groups'],
     queryFn: () => api.pool.getGroups(),
@@ -803,20 +831,27 @@ function ChannelEditorDialog({
     setSaving(false);
     setAvailableModels([]);
     setSelectedModels([]);
-    setTargetGroupName('auto');
     setTargetGroupOpen(false);
+    setTargetGroupDirty(false);
     setModelSearch('');
     setEndpointVerified(false);
     setEndpointVerificationMessage(null);
     setModelsValidated(!!channel && ((channel.available_models?.length || 0) > 0));
     if (channel) {
+      const groupState = deriveChannelTargetGroupState(channel, entries);
       setForm(channelToForm(channel));
       setAvailableModels(channel.available_models || []);
       setSelectedModels(channel.selected_models || []);
+      setInitialTargetGroupName(groupState.name);
+      setInitialTargetGroupMixed(groupState.mixed);
+      setTargetGroupName(groupState.name);
     } else {
       setForm(DEFAULT_FORM);
+      setInitialTargetGroupName('auto');
+      setInitialTargetGroupMixed(false);
+      setTargetGroupName('auto');
     }
-  }, [channel, open]);
+  }, [channel, entries, open]);
 
   useEffect(() => {
     const seq = ++probeSeqRef.current;
@@ -961,6 +996,8 @@ function ChannelEditorDialog({
     );
   };
 
+  const shouldSyncTargetGroup = !isEdit || targetGroupDirty || !initialTargetGroupMixed;
+
   const handleSave = async () => {
     if (saving || fetchingModels) return;
     if (!canSave) {
@@ -1019,7 +1056,9 @@ function ChannelEditorDialog({
             ),
             new Promise((_, reject) => setTimeout(() => reject(new Error(t('channel.editor.syncTimeout', '模型同步超时'))), 10000)),
           ]);
-          await syncSelectedModelsToGroup(channelId, targetGroupName);
+          if (shouldSyncTargetGroup) {
+            await syncSelectedModelsToGroup(channelId, targetGroupName);
+          }
         } catch (err) {
           toast.error(getChannelErrorMessage(err, t('channel.editor.modelSyncFailed', '渠道已保存，但模型同步失败')));
           return;
@@ -1123,47 +1162,56 @@ function ChannelEditorDialog({
               </div>
               <div className="space-y-2">
                 <Label>入驻分组</Label>
-                <div className="relative w-full">
-                  <Input
-                    value={targetGroupName}
-                    onFocus={() => setTargetGroupOpen(true)}
-                    onClick={() => setTargetGroupOpen(true)}
-                    onChange={(event) => {
-                      setTargetGroupName(event.target.value);
-                      setTargetGroupOpen(true);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') setTargetGroupOpen(false);
-                    }}
-                    placeholder="auto 或输入新分组"
-                    className="pr-8"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setTargetGroupOpen((value) => !value)}
-                    aria-label="选择入驻分组"
-                  >
-                    ▾
-                  </button>
-                  {targetGroupOpen ? (
-                    <div className="absolute z-50 mt-1 grid max-h-40 w-full grid-cols-2 gap-1 overflow-y-auto rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md">
-                      {groupOptions.map((group) => (
-                        <button
-                          key={group}
-                          type="button"
-                          className="block w-full truncate rounded px-2 py-1.5 text-left hover:bg-accent"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            setTargetGroupName(group);
-                            setTargetGroupOpen(false);
-                          }}
-                        >
-                          {group}
-                        </button>
-                      ))}
+                <div className="space-y-2">
+                  {initialTargetGroupMixed ? (
+                    <div className="text-xs text-muted-foreground">
+                      当前所选模型分散在多个分组；仅在你主动修改此字段后才会统一迁移。
                     </div>
                   ) : null}
+                  <div className="relative w-full">
+                    <Input
+                      value={targetGroupName}
+                      onFocus={() => setTargetGroupOpen(true)}
+                      onClick={() => setTargetGroupOpen(true)}
+                      onChange={(event) => {
+                        setTargetGroupName(event.target.value);
+                        setTargetGroupDirty(true);
+                        setTargetGroupOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setTargetGroupOpen(false);
+                      }}
+                      placeholder="auto 或输入新分组"
+                      className="pr-8"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setTargetGroupOpen((value) => !value)}
+                      aria-label="选择入驻分组"
+                    >
+                      ▾
+                    </button>
+                    {targetGroupOpen ? (
+                      <div className="absolute z-50 mt-1 grid max-h-40 w-full grid-cols-2 gap-1 overflow-y-auto rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md">
+                        {groupOptions.map((group) => (
+                          <button
+                            key={group}
+                            type="button"
+                            className="block w-full truncate rounded px-2 py-1.5 text-left hover:bg-accent"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setTargetGroupName(group);
+                              setTargetGroupDirty(group !== initialTargetGroupName || initialTargetGroupMixed);
+                              setTargetGroupOpen(false);
+                            }}
+                          >
+                            {group}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>

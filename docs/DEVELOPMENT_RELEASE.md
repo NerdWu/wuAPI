@@ -317,27 +317,32 @@ git diff --check
 - 日志只记录元数据和 token/耗时信息，不记录 API Key、请求体、用户 prompt 或模型回复正文。
 - 保持用户手动关闭模型的优先级，测试成功不自动重新启用模型。
 - PoolManager 仅迁移测速错误提示相关小修，保留本地分组优先和卡片式桌面 UI。
+- 修复渠道编辑弹窗在“所选模型分散于多个分组”时的误覆盖风险。
+  - 根因：编辑弹窗回填会把多分组状态折叠显示为 `auto`，原保存逻辑又会无条件把当前所选模型整体迁回 `auto`。
+  - 当前行为：若检测到同一渠道所选模型分散在多个分组，弹窗会提示“仅在主动修改此字段后才统一迁移”；用户只改其它字段直接保存时，不再覆盖原有分组。
+- 修复渠道列表行内“获取模型列表”后清空已选模型的问题。
+  - 根因：后端 `fetch_models(channel_id)` 在更新 `available_models` 时把 `selected_models` 直接写成空数组。
+  - 当前行为：重新拉取模型后，会保留“原来已选且本次返回结果里仍存在”的模型；已不存在的模型才会自然移除。
 
 ### 验证记录
 
 本轮已执行：
 
 ```powershell
+git status --short --branch
 git diff --check
 corepack pnpm typecheck
 corepack pnpm build:renderer
 corepack pnpm build
-cargo check
-cargo test
+cd src-tauri && cargo check
 ```
 
 验证结果：
 
+- `git status --short --branch` 显示当前工作区改动包含：`src/features/channels/ChannelManager.tsx`、`src-tauri/src/services/channel_service.rs`、`docs/DEVELOPMENT_RELEASE.md`，以及未跟踪的本地文件 `指示词.txt`。
 - `git diff --check` 通过。
 - `typecheck` 通过。
 - `build:renderer` 通过。
-- `cargo check` 通过。
-- `cargo test` 通过，257 项 Rust 测试全部通过。
-- `corepack pnpm build` 通过，重新生成 `src-tauri\target\release\wuAPI.exe`，用于 `0.6.16_wu_2026.05.17` 发布。
-- 隔离 worktree 首次 `build:renderer` 因缺少本地 `node_modules` 失败；执行 `corepack pnpm install` 后重跑通过。
-- 已人工检查新增测试日志路径，不写入 API Key、请求体、用户 prompt 或模型回复正文。
+- `corepack pnpm build` 通过，并重新生成 `src-tauri\target\release\wuAPI.exe`。
+- `cd src-tauri && cargo check` 通过；期间定位并清理了指向旧目录 `wuAPI-worktree-clean` 的本地 Tauri debug 构建缓存后，Rust 校验恢复正常。
+- 代码层新增两处边界保护：一是多分组渠道在未主动改“入驻分组”时保存，不再把所选模型统一回写为 `auto`；二是渠道列表行内重新获取模型后，会保留仍然存在的已选模型，不再把 `selected_models` 直接清空。

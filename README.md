@@ -1,8 +1,8 @@
 # wuAPI
 
-> 个人 AI API 管理与转发中心
+> Windows 桌面版 AI API 管理与转发中心
 
-这是吴泽斌个人使用的 Windows 桌面版 API 转发工具。它通过一个本地统一入口管理多个上游 AI API 渠道，重点服务本机使用场景下的渠道管理、API 池分组路由、测速、日志查看和便携运行。
+这是当前维护中的 Windows 桌面版 API 转发工具。它通过一个本地统一入口管理多个上游 AI API 渠道，重点覆盖渠道管理、API 池分组路由、测速、日志查看和本地便携运行等桌面工作流。
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/NerdWu/wuAPI/releases) 下载 Windows 版本。
+1. 从 Releases 下载 Windows 版本。
 2. 运行 `wuAPI.exe`，数据库会自动创建在 exe 同目录下。
 3. 在 **渠道管理** 中添加上游渠道并拉取模型。
 4. 在 **API 管理** 中启用需要参与路由的条目。
@@ -109,8 +109,8 @@ E:\SoftWare\Project\wuAPI-worktree
 
 相关远端职责：
 
-- `origin`：`https://github.com/NerdWu/wuAPI`，个人二改仓库。
-- `upstream`：`https://github.com/wang1970/API-Switch`，原项目参考远端。
+- `origin`：当前维护仓库。
+- `upstream`：原项目参考远端。
 
 ### 本地构建命令
 

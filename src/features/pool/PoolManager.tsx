@@ -1084,11 +1084,11 @@ const handleToggleIntent = useCallback(async (entry: ApiEntry, enabled: boolean,
           if (result.latency_ms !== null) {
             results[entry.id] = result.latency_ms.toString();
           } else {
-            results[entry.id] = "X";
+            results[entry.id] = result.error_detail ? `X: ${result.error_detail}` : "X";
             await adapter.pool.toggle(entry.id, false); // invalidate below handles refresh for paginated query keys.
           }
-        } catch {
-          results[entry.id] = "X";
+        } catch (err) {
+          results[entry.id] = err instanceof Error ? `X: ${err.message}` : "X";
         }
         completed++;
         setTestProgress({ current: completed, total });

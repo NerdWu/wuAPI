@@ -2,6 +2,7 @@ use crate::database::dao::PaginatedResult;
 use crate::database::{ApiEntry, Database, EntryCatalogMetaInput};
 use crate::error::AppError;
 use crate::proxy::protocol::get_adapter;
+use crate::services::log_service::{extract_usage_tokens, insert_test_usage_log, TestUsageLogInput};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::Instant;
@@ -37,6 +38,8 @@ pub struct CatalogMetaUpdate {
 pub struct TestLatencyResult {
     pub status: String,
     pub response_ms: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_detail: Option<String>,
 }
 
 /// List all API entries from the database.
@@ -151,6 +154,45 @@ pub fn backfill_entry_catalog_meta(
     db.backfill_entry_catalog_meta(&inputs)
 }
 
+fn truncate_for_log(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect::<String>()
+}
+
+fn record_latency_test(
+    db: &Database,
+    entry: &ApiEntry,
+    channel: &crate::database::Channel,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    latency_ms: i64,
+    status_code: i32,
+    success: bool,
+    error_message: Option<&str>,
+    error_kind: Option<&str>,
+    response_ms: Option<&str>,
+    error_preview: Option<&str>,
+) {
+    insert_test_usage_log(
+        db,
+        None,
+        TestUsageLogInput {
+            entry,
+            channel,
+            operation: "test_latency",
+            log_group: "pool_latency_test",
+            prompt_tokens,
+            completion_tokens,
+            latency_ms,
+            status_code,
+            success,
+            error_message,
+            error_kind,
+            response_ms,
+            error_preview,
+        },
+    );
+}
+
 /// Test latency for a specific entry.
 pub async fn test_entry_latency(
     db: &Database,
@@ -165,11 +207,27 @@ pub async fn test_entry_latency(
 
     let channel = db.get_channel(&entry.channel_id)?;
     if !channel.enabled {
+        let error_detail = "Channel disabled".to_string();
         let _ = db.update_entry_response_ms(entry_id, "X");
         let _ = db.toggle_entry(entry_id, false);
+        record_latency_test(
+            db,
+            &entry,
+            &channel,
+            0,
+            0,
+            0,
+            400,
+            false,
+            Some(&error_detail),
+            Some("channel_disabled"),
+            Some("X"),
+            None,
+        );
         return Ok(TestLatencyResult {
             status: "disabled".to_string(),
             response_ms: "X".to_string(),
+            error_detail: Some(error_detail),
         });
     }
 
@@ -198,12 +256,29 @@ pub async fn test_entry_latency(
     let start = Instant::now();
     let response = match request.send().await {
         Ok(response) => response,
-        Err(_) => {
+        Err(e) => {
+            let latency_ms = start.elapsed().as_millis() as i64;
+            let error_detail = format!("Request failed: {e}");
             let _ = db.update_entry_response_ms(entry_id, "X");
             let _ = db.toggle_entry(entry_id, false);
+            record_latency_test(
+                db,
+                &entry,
+                &channel,
+                0,
+                0,
+                latency_ms,
+                502,
+                false,
+                Some(&error_detail),
+                Some("network_error"),
+                Some("X"),
+                None,
+            );
             return Ok(TestLatencyResult {
                 status: "failed".to_string(),
                 response_ms: "X".to_string(),
+                error_detail: Some(error_detail),
             });
         }
     };
@@ -212,44 +287,112 @@ pub async fn test_entry_latency(
     let status = response.status();
 
     if status.as_u16() != 200 {
+        let status_code = status.as_u16() as i32;
+        let body = response.text().await.unwrap_or_default();
+        let error_detail = format!("Upstream HTTP {status}");
+        let error_preview = truncate_for_log(&body, 500);
         let _ = db.update_entry_response_ms(entry_id, "X");
         let _ = db.toggle_entry(entry_id, false);
+        record_latency_test(
+            db,
+            &entry,
+            &channel,
+            0,
+            0,
+            latency_ms as i64,
+            status_code,
+            false,
+            Some(&error_detail),
+            Some("http_error"),
+            Some("X"),
+            Some(&error_preview),
+        );
         return Ok(TestLatencyResult {
             status: "failed".to_string(),
             response_ms: "X".to_string(),
+            error_detail: Some(error_detail),
         });
     }
 
     let body = match response.text().await {
         Ok(body) => body,
-        Err(_) => {
+        Err(e) => {
+            let error_detail = format!("Read response failed: {e}");
             let _ = db.update_entry_response_ms(entry_id, "X");
             let _ = db.toggle_entry(entry_id, false);
+            record_latency_test(
+                db,
+                &entry,
+                &channel,
+                0,
+                0,
+                latency_ms as i64,
+                502,
+                false,
+                Some(&error_detail),
+                Some("read_error"),
+                Some("X"),
+                None,
+            );
             return Ok(TestLatencyResult {
                 status: "failed".to_string(),
                 response_ms: "X".to_string(),
+                error_detail: Some(error_detail),
             });
         }
     };
 
     if body.trim().is_empty() {
+        let error_detail = "Empty response".to_string();
         let _ = db.update_entry_response_ms(entry_id, "X");
         let _ = db.toggle_entry(entry_id, false);
+        record_latency_test(
+            db,
+            &entry,
+            &channel,
+            0,
+            0,
+            latency_ms as i64,
+            200,
+            false,
+            Some(&error_detail),
+            Some("empty_response"),
+            Some("X"),
+            None,
+        );
         return Ok(TestLatencyResult {
             status: "failed".to_string(),
             response_ms: "X".to_string(),
+            error_detail: Some(error_detail),
         });
     }
 
+    let parsed_body = serde_json::from_str::<serde_json::Value>(&body).ok();
+    let (prompt_tokens, completion_tokens) = parsed_body
+        .as_ref()
+        .map(extract_usage_tokens)
+        .unwrap_or((0, 0));
     let response_ms = latency_ms.to_string();
     db.update_entry_response_ms(entry_id, &response_ms)?;
-    // 启用 entry 并清理冷却，确保后续自动路由能命中
-    db.toggle_entry(entry_id, true)?;
-    let _ = db.set_entry_cooldown(entry_id, None);
+    record_latency_test(
+        db,
+        &entry,
+        &channel,
+        prompt_tokens,
+        completion_tokens,
+        latency_ms as i64,
+        200,
+        true,
+        None,
+        None,
+        Some(&response_ms),
+        None,
+    );
 
     Ok(TestLatencyResult {
         status: "ok".to_string(),
         response_ms,
+        error_detail: None,
     })
 }
 

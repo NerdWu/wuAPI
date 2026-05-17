@@ -343,7 +343,7 @@ pub async fn cancel_response(
 mod tests {
     use super::*;
     use crate::proxy::protocol::responses::{
-        convert_tools, passthrough_output_item, responses_to_openai_chat_request,
+        convert_tools, input_to_messages, passthrough_output_item, responses_to_openai_chat_request,
         responses_hosted_tool_types_for_chat_fallback, responses_hosted_tools_degradation_prompt,
     };
 

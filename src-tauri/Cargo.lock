@@ -6074,7 +6074,7 @@ dependencies = [
 
 [[package]]
 name = "wuAPI"
-version = "0.6.9"
+version = "0.6.16"
 dependencies = [
  "anyhow",
  "auto-launch",

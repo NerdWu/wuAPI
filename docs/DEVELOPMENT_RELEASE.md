@@ -301,3 +301,41 @@ git diff --check
 - 当前分支尚未推送；`git push` 仍需用户明确确认。
 - 根目录 `icon.png` 已纳入本地提交，是当前图标生成脚本和桌面侧栏品牌图的输入源。
 - `docs/superpowers/`、对话导出 Markdown 和 `.agent_logs/` 仍为未跟踪文件；这些属于计划/会话/提交草稿材料，发布前需要决定是否保留为本地文件、归档或纳入版本控制。
+
+## 2026-05-17 上游 v0.6.16 选择性同步日志
+
+### 背景
+
+本轮只选择性迁移 upstream v0.6.16 中适合 wuAPI 个人 Windows 桌面版的修复，不直接 merge upstream/master，不恢复 Web/Headless 产品叙事，不迁移自动版本 bump 脚本。
+
+### 同步范围
+
+- 基础版本同步为 `0.6.16`，设置页显示为 `0.6.16_wu_2026.05.17`。
+- `.gitignore` 补充本地 SQLite 数据库文件忽略规则。
+- 测速结果增加后端错误详情透传，用于区分网络错误、HTTP 错误、空响应和解析失败。
+- 测速和测试对话写入安全 usage log，并用 `log_group` 区分 `pool_latency_test` 与 `test_chat`。
+- 日志只记录元数据和 token/耗时信息，不记录 API Key、请求体、用户 prompt 或模型回复正文。
+- 保持用户手动关闭模型的优先级，测试成功不自动重新启用模型。
+- PoolManager 仅迁移测速错误提示相关小修，保留本地分组优先和卡片式桌面 UI。
+
+### 验证记录
+
+本轮已执行：
+
+```powershell
+git diff --check
+corepack pnpm typecheck
+corepack pnpm build:renderer
+cargo check
+cargo test
+```
+
+验证结果：
+
+- `git diff --check` 通过。
+- `typecheck` 通过。
+- `build:renderer` 通过。
+- `cargo check` 通过。
+- `cargo test` 通过，257 项 Rust 测试全部通过。
+- 隔离 worktree 首次 `build:renderer` 因缺少本地 `node_modules` 失败；执行 `corepack pnpm install` 后重跑通过。
+- 已人工检查新增测试日志路径，不写入 API Key、请求体、用户 prompt 或模型回复正文。

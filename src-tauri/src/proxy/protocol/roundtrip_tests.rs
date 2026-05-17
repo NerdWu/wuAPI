@@ -47,8 +47,8 @@ fn without_fields(mut value: Value, fields: &[&str]) -> Value {
 mod claude_roundtrip {
     use super::*;
     use crate::proxy::protocol::{
-        claude::ClaudeAdapter, claude_to_openai_request, openai_to_claude_response,
-        ClaudeSSETransformer, ProtocolAdapter,
+        claude::{ClaudeAdapter, ClaudeSSETransformer},
+        claude_to_openai_request, openai_to_claude_response, ProtocolAdapter,
     };
 
     const TEST_MODEL: &str = "claude-3-sonnet-20240229";

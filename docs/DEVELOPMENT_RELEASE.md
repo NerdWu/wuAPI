@@ -326,6 +326,7 @@ git diff --check
 git diff --check
 corepack pnpm typecheck
 corepack pnpm build:renderer
+corepack pnpm build
 cargo check
 cargo test
 ```
@@ -337,5 +338,6 @@ cargo test
 - `build:renderer` 通过。
 - `cargo check` 通过。
 - `cargo test` 通过，257 项 Rust 测试全部通过。
+- `corepack pnpm build` 通过，重新生成 `src-tauri\target\release\wuAPI.exe`，用于 `0.6.16_wu_2026.05.17` 发布。
 - 隔离 worktree 首次 `build:renderer` 因缺少本地 `node_modules` 失败；执行 `corepack pnpm install` 后重跑通过。
 - 已人工检查新增测试日志路径，不写入 API Key、请求体、用户 prompt 或模型回复正文。

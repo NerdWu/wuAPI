@@ -18,7 +18,7 @@ export interface SettingsEditorProps {
 
 function formatWuVersion(version: string) {
   if (version.includes("_wu_")) return version;
-  return `${version}_wu_2026.05.16`;
+  return `${version}_wu_2026.05.17`;
 }
 
 export function SettingsEditor({

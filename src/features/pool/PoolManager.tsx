@@ -359,7 +359,19 @@ function CardBody({
 }) {
   const { t } = useTranslation();
   const [groupMenu, setGroupMenu] = useState<{ x: number; y: number } | null>(null);
+  const [groupDraft, setGroupDraft] = useState("");
   const cooldownRemaining = formatCooldownRemaining(entry.cooldown_until);
+
+  const submitGroupDraft = useCallback(() => {
+    if (!onGroupChange) return;
+    const raw = groupDraft.trim();
+    if (!raw) return;
+    const nextGroup = normalizeGroupName(raw);
+    if (nextGroup === normalizeGroupName(entry.group_name)) return;
+    onGroupChange(entry, nextGroup);
+    setGroupDraft("");
+    setGroupMenu(null);
+  }, [entry, groupDraft, onGroupChange]);
 
   const groupOptions = useMemo(() => {
     const merged = new Set(["auto", ...(groups ?? []), entry.group_name || "auto"]);
@@ -379,9 +391,10 @@ function CardBody({
     <div
       className="flex min-w-0 flex-1 items-start gap-3"
       onContextMenu={(event) => {
-        if (!onGroupChange || !groups?.length) return;
+        if (!onGroupChange) return;
         event.preventDefault();
         event.stopPropagation();
+        setGroupDraft("");
         setGroupMenu({ x: event.clientX, y: event.clientY });
       }}
     >
@@ -478,7 +491,10 @@ function CardBody({
           <button
             type="button"
             className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setGroupMenu(null)}
+            onClick={() => {
+              setGroupDraft("");
+              setGroupMenu(null);
+            }}
             aria-label="关闭分组菜单"
           />
           <div
@@ -487,6 +503,28 @@ function CardBody({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-2 py-1.5 text-xs text-muted-foreground">切换分组</div>
+            <div className="px-1 pb-1">
+              <Input
+                autoFocus
+                value={groupDraft}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => setGroupDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    submitGroupDraft();
+                  }
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setGroupDraft("");
+                    setGroupMenu(null);
+                  }
+                }}
+                placeholder="输入新分组后回车"
+                className="h-8 text-xs"
+              />
+            </div>
             {groupOptions.map((group) => (
               <button
                 key={group}
@@ -497,6 +535,7 @@ function CardBody({
                 )}
                 onClick={() => {
                   onGroupChange(entry, group);
+                  setGroupDraft("");
                   setGroupMenu(null);
                 }}
               >
@@ -887,6 +926,7 @@ export function PoolManager() {
     mutationFn: ({ id, groupName }: { id: string; groupName: string }) => adapter.pool.updateGroup(id, groupName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["entries"] });
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
     },
     onError: (err) => {
       toast.error(`${t("apiPool.group.updateFailed")}: ${err}`);
